@@ -5,7 +5,6 @@ package server
 
 import (
 	"bytes"
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -17,11 +16,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mostlygeek/site-llama-swap.ai/internal/llamaswap/docagent"
-	"github.com/mostlygeek/site-llama-swap.ai/internal/llamaswap/docs"
-	"github.com/mostlygeek/site-llama-swap.ai/internal/llamaswap/mcptools"
-	"github.com/mostlygeek/site-llama-swap.ai/internal/llamaswap/mcptools/sourcecode"
-	"github.com/mostlygeek/site-llama-swap.ai/internal/llamaswap/source"
+	"github.com/mostlygeek/llama-swap/docbot"
+
+	"github.com/mostlygeek/site-llama-swap.ai/internal/llamasrc"
 	"github.com/mostlygeek/site-llama-swap.ai/web"
 )
 
@@ -40,10 +37,9 @@ type Options struct {
 
 // Server serves the whole site. It holds no per-request state.
 type Server struct {
-	mux     *http.ServeMux
-	tools   *mcptools.Registry
-	version string
-	log     *slog.Logger
+	mux *http.ServeMux
+	bot *docbot.Handler
+	log *slog.Logger
 
 	pages map[string]*template.Template
 	agent AgentConfig
@@ -66,40 +62,26 @@ func New(opts Options) (*Server, error) {
 		opts.TransformersURL = DefaultTransformersURL
 	}
 
-	reference := docagent.NewWithSchema(docs.Files, docs.ConfigSchema)
-	if !reference.Enabled() {
-		return nil, fmt.Errorf("no llama-swap documentation is embedded; run scripts/sync-llama-swap.sh")
-	}
-
-	srcFS, err := tarGzFS(source.Tarball)
+	src, err := docbot.SourceFromArchive(llamasrc.Archive)
 	if err != nil {
 		return nil, fmt.Errorf("loading llama-swap source: %w", err)
 	}
-
-	tools, err := mcptools.New(
-		docagent.NewDocsProvider(reference),
-		sourcecode.NewProvider(sourcecode.Options{Source: srcFS, Ref: source.Commit}),
-	)
+	bot, err := docbot.New(docbot.Options{Name: "llama-swap.ai", Version: opts.Version, Source: src})
 	if err != nil {
-		return nil, fmt.Errorf("building the MCP tool registry: %w", err)
+		return nil, err
 	}
 
 	s := &Server{
-		mux:     http.NewServeMux(),
-		tools:   tools,
-		version: opts.Version,
-		log:     opts.Logger,
+		mux: http.NewServeMux(),
+		bot: bot,
+		log: opts.Logger,
 	}
 	if s.log == nil {
 		s.log = slog.Default()
 	}
 
-	available, err := s.toolNames()
-	if err != nil {
-		return nil, err
-	}
 	s.agent = AgentConfig{
-		SystemPrompt:    filterPrompt(docs.AgentPrompt, available),
+		SystemPrompt:    bot.SystemPrompt(),
 		Model:           opts.Model,
 		Revision:        opts.ModelRevision,
 		TransformersURL: opts.TransformersURL,
@@ -119,28 +101,10 @@ func New(opts Options) (*Server, error) {
 	return s, nil
 }
 
-func (s *Server) toolNames() (map[string]bool, error) {
-	names := map[string]bool{}
-	cursor := ""
-	for {
-		page, next, err := s.tools.Tools(context.Background(), cursor, mcptools.DefaultPageSize)
-		if err != nil {
-			return nil, fmt.Errorf("listing tools: %w", err)
-		}
-		for _, tool := range page {
-			names[tool.Name] = true
-		}
-		if next == "" {
-			return names, nil
-		}
-		cursor = next
-	}
-}
-
 func (s *Server) routes() {
 	s.mux.HandleFunc("GET /{$}", s.page("home"))
 	s.mux.HandleFunc("GET /help", s.page("help"))
-	s.mux.HandleFunc("/api/mcp", s.handleMCP)
+	s.mux.Handle("/api/mcp", s.bot)
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Write([]byte("ok\n"))

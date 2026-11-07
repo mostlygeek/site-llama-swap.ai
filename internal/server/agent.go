@@ -1,15 +1,10 @@
 package server
 
-import (
-	"regexp"
-	"strings"
-)
-
 // AgentConfig is what the Help page needs to run the agent in the browser. It
 // is embedded in the page as JSON.
 type AgentConfig struct {
 	// SystemPrompt is llama-swap's Docs Agent prompt, minus the lines for
-	// tools this site does not serve.
+	// tools this site does not serve (see docbot.Handler.SystemPrompt).
 	SystemPrompt string `json:"systemPrompt"`
 
 	// Model is the Hugging Face repository holding the ONNX weights, and
@@ -55,24 +50,4 @@ var suggestions = []string{
 	"A model won't start. How do I fix it?",
 	// guides/api-integration/api-keys-and-auth
 	"How do I require an API key?",
-}
-
-// toolLine matches a bullet in the prompt's tool list, capturing the tool
-// name: "- `config__get_config` - ...".
-var toolLine = regexp.MustCompile("^- `([A-Za-z0-9_-]+__[A-Za-z0-9_-]+)`")
-
-// filterPrompt drops the tool-list bullets that name a tool not in available.
-// llama-swap's prompt lists config__get_config and sys__now, which only make
-// sense next to a running server; describing a tool the model cannot call
-// invites it to call one anyway.
-func filterPrompt(prompt string, available map[string]bool) string {
-	lines := strings.Split(prompt, "\n")
-	kept := lines[:0]
-	for _, line := range lines {
-		if m := toolLine.FindStringSubmatch(line); m != nil && !available[m[1]] {
-			continue
-		}
-		kept = append(kept, line)
-	}
-	return strings.TrimSpace(strings.Join(kept, "\n"))
 }

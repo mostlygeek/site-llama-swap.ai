@@ -133,16 +133,3 @@ func TestServer_Healthz(t *testing.T) {
 		t.Fatalf("healthz = %d %q", w.Code, body)
 	}
 }
-
-func TestFilterPrompt(t *testing.T) {
-	prompt := "## Tools\n\n" +
-		"- `docs__search_docs` - search.\n" +
-		"- `config__get_config` - the running config.\n" +
-		"- `sys__now` - the time.\n" +
-		"\n1. Call `config__get_config` never.\n"
-	got := filterPrompt(prompt, map[string]bool{"docs__search_docs": true})
-	want := "## Tools\n\n- `docs__search_docs` - search.\n\n1. Call `config__get_config` never."
-	if got != want {
-		t.Errorf("filterPrompt =\n%s\nwant\n%s", got, want)
-	}
-}
