@@ -61,6 +61,7 @@ function ensureModel() {
   if (loadPromise) return loadPromise;
 
   modelState = "loading";
+  markLoading(true);
   els.load.disabled = true;
   els.load.textContent = "Loading…";
   setStatus("loading", "Starting");
@@ -78,9 +79,14 @@ function ensureModel() {
           break;
         case "progress":
           setProgress(msg.loaded / msg.total);
-          setStatus("loading", `Downloading the model: ${formatBytes(msg.loaded)} of ${formatBytes(msg.total)}`);
+          setStatus(
+            "loading",
+            `${msg.phase === "read" ? "Loading the model into memory" : "Downloading the model"}: ` +
+              `${formatBytes(msg.loaded)} of ${formatBytes(msg.total)}`,
+          );
           break;
         case "ready":
+          markLoading(false);
           modelState = "ready";
           setProgress(null);
           setStatus("ready", `LFM3-1.7B-HelpAgent (${msg.dtype}) ready`);
@@ -103,6 +109,7 @@ function ensureModel() {
             pending.reject(error);
             pending = null;
           } else if (modelState !== "ready") {
+            markLoading(false);
             modelState = "error";
             loadPromise = null;
             worker.terminate();
@@ -160,6 +167,38 @@ function generate(onText) {
       pending = { id, resolve, reject, onText };
       worker.postMessage({ type: "generate", id, messages, tools, maxNewTokens: config.maxNewTokens });
     });
+}
+
+// A browser that runs out of memory while loading the model can close and
+// reload the page; iOS Safari does this with a brief flash. To tell the
+// reader why instead of starting over, note when a load starts and clear it
+// when it ends. Finding the note on a fresh page means the last load never
+// ended.
+const LOADING_KEY = "help-agent-loading";
+const LOADING_STALE_MS = 15 * 60 * 1000;
+
+function markLoading(on) {
+  try {
+    if (on) localStorage.setItem(LOADING_KEY, String(Date.now()));
+    else localStorage.removeItem(LOADING_KEY);
+  } catch {
+    // Storage can be off; the warning is a nicety.
+  }
+}
+
+// Leaving the page normally is not a crash.
+addEventListener("pagehide", () => {
+  if (modelState === "loading") markLoading(false);
+});
+
+function loadWasInterrupted() {
+  try {
+    const started = Number(localStorage.getItem(LOADING_KEY));
+    localStorage.removeItem(LOADING_KEY);
+    return started > 0 && Date.now() - started < LOADING_STALE_MS;
+  } catch {
+    return false;
+  }
 }
 
 function showGpuError(message) {
@@ -762,4 +801,13 @@ els.input.addEventListener("keydown", (event) => {
 els.stop.addEventListener("click", stop);
 els.newChat.addEventListener("click", newChat);
 
-checkWebGPU();
+checkWebGPU().then(() => {
+  if (gpuSupported && loadWasInterrupted()) {
+    showGpuError(
+      "The page reloaded while the model was loading. Browsers close a page that uses too much memory, " +
+        "and this model needs several gigabytes while it loads, which can be more than a phone allows. " +
+        "The download is kept, so trying again does not download it again.",
+    );
+    els.load.textContent = "Try again";
+  }
+});

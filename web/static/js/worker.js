@@ -6,7 +6,7 @@
 //   { type: "generate", id, messages, tools, maxNewTokens }
 //   { type: "stop" }
 // Messages out:
-//   { type: "progress", loaded, total }       download progress, bytes
+//   { type: "progress", phase, loaded, total }  bytes; phase is "download" or "read"
 //   { type: "status", text }                  a loading step
 //   { type: "ready", dtype }
 //   { type: "token", id, text, tokens }   tokens generated so far this turn
@@ -33,8 +33,86 @@ async function pickDtype() {
   return adapter.features.has("shader-f16") ? "q4f16" : "q4";
 }
 
+// Transformers.js keeps its downloads in this Cache Storage cache, keyed by
+// the file's URL on huggingface.co.
+const CACHE_NAME = "transformers-cache";
+
+function modelFileURL(model, revision, file) {
+  return `https://huggingface.co/${model}/resolve/${encodeURIComponent(revision)}/${file}`;
+}
+
+/**
+ * Downloads files into the cache Transformers.js reads from, streaming each
+ * response straight to storage.
+ *
+ * Left to itself, Transformers.js reads a whole file into memory (1.4 GB for
+ * the weights) and only then writes it to the cache. On a phone the browser
+ * can close the page for using too much memory before that write finishes,
+ * and the next visit downloads everything again. Streaming keeps the download
+ * out of page memory, and a file is kept once it has fully arrived.
+ */
+async function precache(urls) {
+  if (typeof caches === "undefined") return;
+  const cache = await caches.open(CACHE_NAME);
+
+  const sizes = new Map();
+  const todo = [];
+  for (const url of urls) {
+    const hit = await cache.match(url);
+    if (hit) {
+      sizes.set(url, { loaded: 1, total: 1 });
+    } else {
+      todo.push(url);
+    }
+  }
+  if (!todo.length) return;
+
+  const report = () => {
+    let loaded = 0;
+    let total = 0;
+    for (const s of sizes.values()) {
+      loaded += s.loaded;
+      total += s.total;
+    }
+    self.postMessage({ type: "progress", phase: "download", loaded, total });
+  };
+
+  for (const url of todo) {
+    const response = await fetch(url);
+    if (!response.ok || !response.body) {
+      throw new Error(`Downloading ${url.split("/").pop()} failed: HTTP ${response.status}`);
+    }
+    const size = { loaded: 0, total: Number(response.headers.get("content-length")) || 0 };
+    sizes.set(url, size);
+    const counted = response.body.pipeThrough(
+      new TransformStream({
+        transform(chunk, controller) {
+          size.loaded += chunk.byteLength;
+          report();
+          controller.enqueue(chunk);
+        },
+      }),
+    );
+    try {
+      await cache.put(url, new Response(counted, { headers: response.headers }));
+    } catch (error) {
+      throw new Error(
+        `The browser could not store the model (${error?.message ?? error}). ` +
+          "It needs about 1.6 GB of free storage.",
+      );
+    }
+  }
+}
+
 async function load({ model, revision, transformersUrl }) {
   const dtype = await pickDtype();
+
+  self.postMessage({ type: "status", text: `Downloading the model (${dtype})` });
+  await precache([
+    modelFileURL(model, revision, `onnx/model_${dtype}.onnx`),
+    modelFileURL(model, revision, `onnx/model_${dtype}.onnx_data`),
+  ]);
+
   self.postMessage({ type: "status", text: "Loading Transformers.js" });
   T = await import(transformersUrl);
   T.env.allowLocalModels = false;
@@ -50,14 +128,14 @@ async function load({ model, revision, transformersUrl }) {
         done += f.loaded;
         total += f.total;
       }
-      self.postMessage({ type: "progress", loaded: done, total });
+      self.postMessage({ type: "progress", phase: "read", loaded: done, total });
     } else if (info.status === "done" && info.file) {
       const f = files.get(info.file);
       if (f) f.loaded = f.total;
     }
   };
 
-  self.postMessage({ type: "status", text: `Downloading the model (${dtype})` });
+  self.postMessage({ type: "status", text: "Loading the model" });
   loaded = await loadModel(T, { model, revision, device: "webgpu", dtype, onProgress });
   stopping = new T.InterruptableStoppingCriteria();
 
