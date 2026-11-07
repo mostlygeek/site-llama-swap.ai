@@ -134,11 +134,11 @@ func TestServer_StaticCaching(t *testing.T) {
 	}
 }
 
-func TestServer_Healthz(t *testing.T) {
+func TestServer_Health(t *testing.T) {
 	s := newTestServer(t)
-	w := get(t, s, "/healthz")
+	w := get(t, s, "/health")
 	body, _ := io.ReadAll(w.Body)
 	if w.Code != http.StatusOK || string(body) != "ok\n" {
-		t.Fatalf("healthz = %d %q", w.Code, body)
+		t.Fatalf("health = %d %q", w.Code, body)
 	}
 }

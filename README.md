@@ -8,7 +8,7 @@ The website for [llama-swap.ai](https://llama-swap.ai). It is one Go binary that
 | `/docs/chat` | Chat with the docs (the help agent; `/help` redirects here). It runs [llama-swap/LFM3-1.7B-HelpAgent](https://huggingface.co/llama-swap/LFM3-1.7B-HelpAgent) in the browser with WebGPU. |
 | `/docs` | llama-swap's documentation as HTML: the knowledge base, a configuration reference from `config.example.yaml`, and search. |
 | `/api/mcp` | The documentation and source code tools the help agent calls, served by llama-swap's `docbot` package: the same MCP protocol and tools as llama-swap's own `/api/mcp`, minus the ones that need a running llama-swap. |
-| `/healthz` | Returns `ok`. |
+| `/health` | Returns `ok`. |
 
 ## Running it
 

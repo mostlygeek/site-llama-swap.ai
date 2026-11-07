@@ -24,7 +24,7 @@ primary_region = "sjc"
 
   [[http_service.checks]]
     method = "GET"
-    path = "/healthz"
+    path = "/health"
     interval = "30s"
     timeout = "5s"
     grace_period = "10s"
