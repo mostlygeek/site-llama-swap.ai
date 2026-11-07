@@ -9,7 +9,7 @@
 //   { type: "progress", loaded, total }       download progress, bytes
 //   { type: "status", text }                  a loading step
 //   { type: "ready", dtype }
-//   { type: "token", id, text }
+//   { type: "token", id, text, tokens }   tokens generated so far this turn
 //   { type: "result", id, result }
 //   { type: "error", id?, message, name? }
 
@@ -79,7 +79,7 @@ async function generate({ id, messages, tools, maxNewTokens }) {
     maxNewTokens,
     stoppingCriteria: stopping,
     shouldStop: () => stopRequested,
-    onText: (text) => self.postMessage({ type: "token", id, text }),
+    onText: (text, tokens) => self.postMessage({ type: "token", id, text, tokens }),
   });
   if (stopRequested) {
     const error = new Error("Generation stopped");

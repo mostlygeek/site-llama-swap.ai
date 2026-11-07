@@ -402,6 +402,8 @@ body.page-help main {
 
 .chat {
   flex: 1;
+  /* Without this the column grows to fit its widest unwrappable line. */
+  min-width: 0;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -576,74 +578,90 @@ body.page-help main {
   overflow-wrap: anywhere;
 }
 
+/* Work box: reasoning and tool calls, collapsed by default. */
+
 .work {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  background: var(--surface);
 }
 
-.work:empty {
-  display: none;
-}
-
-.step summary {
+.work-head,
+.item-head,
+.stats-line {
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  text-align: left;
   cursor: pointer;
-  list-style: none;
-  color: var(--muted);
-  font-size: 0.875rem;
-  padding: 3px 0;
-  user-select: none;
 }
 
-.step summary::-webkit-details-marker {
+.work-head {
+  padding: 8px 12px;
+  font-size: 0.875rem;
+  background: var(--surface-2);
+}
+
+.work-head:hover {
+  background: color-mix(in srgb, var(--surface-2) 70%, var(--border));
+}
+
+.work-title {
+  font-weight: 600;
+}
+
+.work-summary {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.work .work-head .spinner {
   display: none;
 }
 
-.step summary:hover {
-  color: var(--fg);
+.work.active .work-head .spinner {
+  display: inline-block;
 }
 
-.step .label {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
+.work-body {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.step .time {
-  margin-left: auto;
-  font-size: 0.8rem;
+.icon {
+  display: inline-flex;
   flex: none;
+  color: var(--muted);
 }
 
-.step .status {
-  width: 14px;
-  height: 14px;
+.chevron {
+  transition: transform 0.15s;
+}
+
+[aria-expanded="true"] > .chevron {
+  transform: rotate(90deg);
+}
+
+.spinner {
+  width: 13px;
+  height: 13px;
   flex: none;
   border-radius: 999px;
-  border: 1.5px solid currentColor;
-  position: relative;
-}
-
-.step.thinking .status {
-  border-style: dotted;
-}
-
-.step.ok .status {
-  border-color: var(--ok);
-  background: var(--ok);
-}
-
-.step.failed .status {
-  border-color: var(--error);
-}
-
-.step.running .status {
-  border-color: var(--accent);
+  border: 1.5px solid var(--accent);
   border-right-color: transparent;
   animation: spin 0.8s linear infinite;
 }
@@ -654,14 +672,113 @@ body.page-help main {
   }
 }
 
-.step-body {
-  margin: 6px 0 10px 22px;
-  max-height: 320px;
+.work-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.item-head {
+  padding: 6px 10px;
+  font-size: 0.8rem;
+}
+
+.item-head:hover {
+  background: var(--surface-2);
+}
+
+.item-label {
+  font-weight: 550;
+  white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.item-name {
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.item-args {
+  flex: 1;
+  min-width: 0;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.work-item.reasoning .item-meta {
+  margin-right: auto;
+}
+
+.item-meta {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.item-status {
+  display: inline-flex;
+  flex: none;
+}
+
+.work-item.ok .item-status {
+  color: var(--ok);
+}
+
+.work-item.failed .item-status {
+  color: #d97706;
+}
+
+.item-body {
+  border-top: 1px solid var(--border);
+  margin: 0;
+  padding: 8px 10px;
+  max-height: 340px;
   overflow: auto;
   font-size: 0.78rem;
+  background: var(--surface-2);
+}
+
+pre.item-body,
+.tool-body pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   color: var(--muted);
+  font-family: var(--mono);
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: none;
+}
+
+pre.item-body {
+  padding: 8px 10px;
+  background: var(--surface-2);
+}
+
+.item-heading {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 6px 0 4px;
+}
+
+.item-heading:first-child {
+  margin-top: 0;
+}
+
+@media (max-width: 640px) {
+  .item-name,
+  .work-summary {
+    display: none;
+  }
 }
 
 .answer {
@@ -755,23 +872,114 @@ body.page-help main {
   }
 }
 
-.meta {
-  margin-top: 10px;
-  font-size: 0.8rem;
-  color: var(--muted);
-  min-height: 1.2em;
+/* Below each response: actions on the left, the status line on the right. */
+
+.msg-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  min-height: 28px;
+  flex-wrap: wrap;
 }
 
-.msg.agent.running .meta::before {
+.msg-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: -6px;
+}
+
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.icon-button:hover {
+  background: var(--surface-2);
+  color: var(--fg);
+}
+
+.icon-button .icon {
+  color: inherit;
+}
+
+.icon-button.done {
+  color: var(--ok);
+}
+
+/* On screens with a mouse the actions fade in on hover, like llama-swap's UI. */
+@media (hover: hover) {
+  .msg.agent .msg-actions .icon-button {
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .msg.agent:hover .msg-actions .icon-button,
+  .msg.agent .msg-actions .icon-button:focus-visible,
+  .msg.agent .msg-actions .icon-button.done {
+    opacity: 1;
+  }
+}
+
+.note {
+  font-size: 0.8rem;
+  color: var(--muted);
+  padding: 0 4px;
+}
+
+.stats-line {
+  width: auto;
+  margin-left: auto;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-line:hover {
+  color: var(--fg);
+  background: var(--surface-2);
+}
+
+.msg.agent.running .stats-line .chevron {
+  display: none;
+}
+
+.msg.agent.running .stats-line::before {
   content: "";
-  display: inline-block;
   width: 6px;
   height: 6px;
   border-radius: 999px;
   background: var(--accent);
-  margin-right: 8px;
-  vertical-align: middle;
   animation: pulse 1.2s ease-in-out infinite;
+}
+
+.stats-detail {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+  margin: 6px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-detail dt {
+  color: var(--muted);
+}
+
+.stats-detail dd {
+  margin: 0;
 }
 
 .msg .error {

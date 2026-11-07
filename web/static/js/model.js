@@ -73,7 +73,8 @@ async function prefill(T, model, ids, { chunkSize = 256, shouldStop } = {}) {
  * @param {object[]} opts.messages chat messages, system prompt first
  * @param {object[]} opts.tools OpenAI-shaped tool definitions
  * @param {number} opts.maxNewTokens
- * @param {(text: string) => void} [opts.onText] streamed text, special tokens included
+ * @param {(text: string, tokens: number) => void} [opts.onText] streamed text,
+ *   special tokens included, with the number of tokens generated so far
  * @param {object} [opts.stoppingCriteria] an InterruptableStoppingCriteria
  * @param {() => boolean} [opts.shouldStop] checked between prefill chunks
  */
@@ -90,10 +91,25 @@ export async function generateTurn(T, { tokenizer, model }, { messages, tools, m
   const cache = await prefill(T, model, inputs.input_ids, { shouldStop });
   const t1 = performance.now();
 
+  // Count tokens as they stream, and note how many were reasoning: the count
+  // when "</think>" arrives. It is a single special token, which the streamer
+  // emits as soon as it is generated.
+  let tokens = 0;
+  let reasoningTokens;
+  let streamed = "";
   const streamer = new T.TextStreamer(tokenizer, {
     skip_prompt: true,
     skip_special_tokens: false,
-    callback_function: (text) => onText?.(text),
+    token_callback_function: (ids) => {
+      tokens += ids.length;
+    },
+    callback_function: (text) => {
+      streamed += text;
+      if (reasoningTokens === undefined && streamed.includes("</think>")) {
+        reasoningTokens = tokens;
+      }
+      onText?.(text, tokens);
+    },
   });
 
   let output;
@@ -117,6 +133,7 @@ export async function generateTurn(T, { tokenizer, model }, { messages, tools, m
     text,
     promptTokens,
     completionTokens: generated.dims[1],
+    reasoningTokens,
     prefillMs: t1 - t0,
     generateMs: t2 - t1,
   };
