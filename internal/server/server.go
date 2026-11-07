@@ -29,9 +29,9 @@ type Options struct {
 	// Version is the site's build version, shown in the MCP server info.
 	Version string
 
-	Model           string
-	ModelRevision   string
-	TransformersURL string
+	Model         string
+	ModelRevision string
+	ModelFile     string
 
 	// Logger receives the access log. Nil uses slog.Default().
 	Logger *slog.Logger
@@ -64,8 +64,8 @@ func New(opts Options) (*Server, error) {
 	if opts.ModelRevision == "" {
 		opts.ModelRevision = DefaultModelRevision
 	}
-	if opts.TransformersURL == "" {
-		opts.TransformersURL = DefaultTransformersURL
+	if opts.ModelFile == "" {
+		opts.ModelFile = DefaultModelFile
 	}
 
 	log := opts.Logger
@@ -103,14 +103,15 @@ func New(opts Options) (*Server, error) {
 	s.highlightVersion = fmt.Sprintf("%x", sha256.Sum256([]byte(site.HighlightCSS)))[:12]
 
 	s.agent = AgentConfig{
-		SystemPrompt:    bot.SystemPrompt(),
-		Model:           opts.Model,
-		Revision:        opts.ModelRevision,
-		TransformersURL: opts.TransformersURL,
-		MaxNewTokens:    2048,
-		MaxIterations:   12,
-		Suggestions:     suggestions,
-		DocLinks:        site.Links(),
+		SystemPrompt:  bot.SystemPrompt(),
+		Model:         opts.Model,
+		Revision:      opts.ModelRevision,
+		ModelFile:     opts.ModelFile,
+		ContextSize:   32768,
+		MaxNewTokens:  2048,
+		MaxIterations: 12,
+		Suggestions:   suggestions,
+		DocLinks:      site.Links(),
 	}
 
 	if s.assetVersion, err = hashFS(web.Static); err != nil {
@@ -151,6 +152,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.Set("X-Content-Type-Options", "nosniff")
 	h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
 	h.Set("X-Frame-Options", "DENY")
+	// Cross-origin isolation gives the chat page SharedArrayBuffer, which
+	// wllama needs to run the model on several threads. "credentialless"
+	// still lets the page load cross-origin files, without cookies.
+	h.Set("Cross-Origin-Opener-Policy", "same-origin")
+	h.Set("Cross-Origin-Embedder-Policy", "credentialless")
 
 	rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 	s.mux.ServeHTTP(rec, r)

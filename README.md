@@ -5,7 +5,7 @@ The website for [llama-swap.ai](https://llama-swap.ai). It is one Go binary that
 | Path | What it is |
 |---|---|
 | `/` | The landing page. |
-| `/docs/chat` | Chat with the docs (the help agent; `/help` redirects here). It runs [llama-swap/LFM3-1.7B-HelpAgent](https://huggingface.co/llama-swap/LFM3-1.7B-HelpAgent) in the browser with WebGPU. |
+| `/docs/chat` | Chat with the docs (the help agent; `/help` redirects here). It runs the Q4_K_M GGUF of [llama-swap/LFM3-1.7B-HelpAgent](https://huggingface.co/llama-swap/LFM3-1.7B-HelpAgent) in the browser with [wllama](https://github.com/ngxson/wllama) and WebGPU. |
 | `/docs` | llama-swap's documentation as HTML: the knowledge base, a configuration reference from `config.example.yaml`, and search. |
 | `/api/mcp` | The documentation and source code tools the help agent calls, served by llama-swap's `docbot` package: the same MCP protocol and tools as llama-swap's own `/api/mcp`, minus the ones that need a running llama-swap. |
 | `/health` | Returns `ok`. |
@@ -36,7 +36,7 @@ Flags:
 | `-listen` | `:8080` | Address to listen on. |
 | `-model` | `llama-swap/LFM3-1.7B-HelpAgent` | Hugging Face repository the browser loads the model from. |
 | `-model-revision` | a pinned commit | Repository commit or branch. Pinned so a new upload does not change the site without a deploy. |
-| `-transformers-url` | Transformers.js 4.3.2 on jsdelivr | The Transformers.js build the browser imports. The model card only tests 4.3.2. |
+| `-model-file` | `LFM3-1.7B-HelpAgent-Q4_K_M.gguf` | GGUF file in the model repository. |
 | `-tls-cert-file`, `-tls-key-file` | none | Serve HTTPS with this certificate and key. Set both or neither. |
 
 ## HTTPS for development
@@ -94,13 +94,15 @@ browser                                          site binary
 help.js   agent loop (agent.js)  ── tools/call ──▶  /api/mcp
    │                                                  ├─ docs__*  llama-swap's docs, config example and schema
    ▼                                                  └─ code__*  llama-swap's source code
-worker.js Transformers.js + WebGPU
-          model files from huggingface.co (cached by the browser)
+worker.js wllama (llama.cpp in WebAssembly) + WebGPU
+          the GGUF from huggingface.co (cached by the browser)
 ```
 
 - The model, its weights and the conversation stay in the browser. Only tool calls reach the server.
-- `worker.js` picks `q4f16` when the GPU has `shader-f16`, and `q4` otherwise. It prefills the prompt in 256 token chunks, as the model card requires.
-- `agent.js` parses the model's raw `<think>` and `<tool_call>` output, which llama-server would parse on llama-swap's own Help page. It has no DOM or network code, so `make test-js` tests it under Node.
+- `worker.js` downloads the Q4_K_M GGUF (1.1 GB) into Cache Storage, resuming a partial download (`download.js`), and loads it with wllama with all layers on the GPU.
+- llama.cpp applies the chat template and parses the model's reasoning and tool calls, as `llama-server --jinja` does on llama-swap's own Help page. `model.js` uses the model card's sampling settings (temperature 0.1, top-k 50, repeat penalty 1.1) and a 32K token context. The conversation stays in llama.cpp's cache between turns, so each turn reads only the new tokens.
+- `agent.js` runs the loop of model turns and tool calls. It has no DOM or network code, so `make test-js` tests it under Node.
+- The site sends `Cross-Origin-Opener-Policy` and `Cross-Origin-Embedder-Policy` headers, so the page is cross-origin isolated and wllama can use several threads.
 - The system prompt is llama-swap's Docs Agent prompt, which the model was fine-tuned on. `docbot` removes the lines for `config__get_config` and `sys__now`, since there is no running llama-swap here.
 
 ## How the docs pages work
@@ -183,4 +185,29 @@ well under a second.
 - `make run` builds and starts the site on `localhost:8080`.
 - The program is in `cmd/site`; the site itself is in `internal/server` and `web/`.
 - `make test` runs `gofmt`, `go vet`, the Go tests (against llama-swap `main`, like `make`) and the JavaScript tests. The JavaScript tests need Node 22 or later.
-- The page uses no build step. `web/static/js/vendor/` holds pinned copies of [marked](https://github.com/markedjs/marked) 15.0.12 and [DOMPurify](https://github.com/cure53/DOMPurify) 3.2.7.
+- The page uses no build step. `web/static/js/vendor/` holds pinned copies of [marked](https://github.com/markedjs/marked) 15.0.12, [DOMPurify](https://github.com/cure53/DOMPurify) 3.2.7 and wllama (see below).
+
+## The wllama build
+
+The model's `lfm3` architecture needs llama.cpp b11960 or later. The newest
+wllama release on npm (3.8.1) bundles an older llama.cpp, so
+`web/static/js/vendor/wllama/` holds a build of wllama's `main` branch
+instead. `VERSION` in that directory names the wllama and llama.cpp commits.
+It is the main build only, which needs WebGPU, JSPI and 64-bit WebAssembly
+memory (Chrome and Edge). The compatibility build for other browsers is not
+included.
+
+To rebuild it, with [emsdk](https://emscripten.org/docs/getting_started/downloads.html)
+4.0.20 active:
+
+```shell
+git clone https://github.com/ngxson/wllama && cd wllama
+git checkout <commit> && git submodule update --init --depth 1 llama.cpp
+npm ci
+SKIP_COMPAT=1 ./scripts/build_wasm.sh   # or the emcmake steps in scripts/docker-compose.yml
+npm run build:worker && npx tsup src/index.ts --format esm --clean && ./scripts/post_build.sh
+cp esm/index.js esm/wasm/wllama.wasm <this repo>/web/static/js/vendor/wllama/
+```
+
+Once a wllama release on npm includes LFM3 support, the vendored copy can
+be replaced by that release.

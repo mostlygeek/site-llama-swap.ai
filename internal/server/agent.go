@@ -7,14 +7,17 @@ type AgentConfig struct {
 	// tools this site does not serve (see docbot.Handler.SystemPrompt).
 	SystemPrompt string `json:"systemPrompt"`
 
-	// Model is the Hugging Face repository holding the ONNX weights, and
+	// Model is the Hugging Face repository holding the GGUF weights,
 	// Revision the commit to load, so a new upload cannot change the site
-	// without a deploy.
-	Model    string `json:"model"`
-	Revision string `json:"revision"`
+	// without a deploy, and ModelFile the GGUF file in it.
+	Model     string `json:"model"`
+	Revision  string `json:"revision"`
+	ModelFile string `json:"modelFile"`
 
-	// TransformersURL is the Transformers.js build the worker imports.
-	TransformersURL string `json:"transformersUrl"`
+	// ContextSize is the model's context window in tokens. The system
+	// prompt, the tool definitions and every turn of a conversation must
+	// fit in it.
+	ContextSize int `json:"contextSize"`
 
 	// MaxNewTokens bounds one model turn, reasoning included.
 	MaxNewTokens int `json:"maxNewTokens"`
@@ -30,11 +33,12 @@ type AgentConfig struct {
 	DocLinks map[string]string `json:"docLinks"`
 }
 
-// Defaults for the model. The model card tests Transformers.js 4.3.2 only.
+// Defaults for the model. The browser runs the Q4_K_M GGUF with wllama, the
+// file the model card's scores measure.
 const (
-	DefaultModel           = "llama-swap/LFM3-1.7B-HelpAgent"
-	DefaultModelRevision   = "0898fda4ce6303c23db0e93ea2288ab7c4ab867c"
-	DefaultTransformersURL = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.2/dist/transformers.min.js"
+	DefaultModel         = "llama-swap/LFM3-1.7B-HelpAgent"
+	DefaultModelRevision = "0898fda4ce6303c23db0e93ea2288ab7c4ab867c"
+	DefaultModelFile     = "LFM3-1.7B-HelpAgent-Q4_K_M.gguf"
 )
 
 // suggestions are the questions offered on an empty Help page. Each must be

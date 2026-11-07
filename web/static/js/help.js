@@ -2,7 +2,7 @@
 // the conversation.
 
 import { listTools, callTool } from "./mcp.js";
-import { partialView, runAgent, toolDefinitions } from "./agent.js";
+import { runAgent, toolDefinitions } from "./agent.js";
 import { addCopyButtons, renderMarkdown } from "./markdown.js";
 import { linkDocs } from "./doclinks.js";
 
@@ -17,7 +17,6 @@ const els = {
   messages: $("messages"),
   intro: $("intro"),
   notice: $("notice"),
-  downloadNote: $("download-note"),
   gpuError: $("gpu-error"),
   load: $("load-model"),
   suggestions: $("suggestions"),
@@ -82,7 +81,7 @@ function ensureModel() {
           setProgress(msg.loaded / msg.total);
           setStatus(
             "loading",
-            `${{ read: "Loading the model into memory", save: "Saving the model" }[msg.phase] ?? "Downloading the model"}: ` +
+            `${msg.phase === "save" ? "Saving the model" : "Downloading the model"}: ` +
               `${formatBytes(msg.loaded)} of ${formatBytes(msg.total)}`,
           );
           break;
@@ -90,12 +89,12 @@ function ensureModel() {
           markLoading(false);
           modelState = "ready";
           setProgress(null);
-          setStatus("ready", `LFM3-1.7B-HelpAgent (${msg.dtype}) ready`);
+          setStatus("ready", `LFM3-1.7B-HelpAgent (${msg.quant}) ready`);
           els.notice.hidden = true;
           resolve();
           break;
-        case "token":
-          if (pending?.id === msg.id) pending.onText(msg.text, msg.tokens);
+        case "update":
+          if (pending?.id === msg.id) pending.onUpdate(msg.view);
           break;
         case "result":
           if (pending?.id === msg.id) {
@@ -155,17 +154,18 @@ function ensureModel() {
       type: "load",
       model: config.model,
       revision: config.revision,
-      transformersUrl: config.transformersUrl,
+      modelFile: config.modelFile,
+      contextSize: config.contextSize,
     });
   });
   return loadPromise;
 }
 
-function generate(onText) {
+function generate(onUpdate) {
   return (messages, tools) =>
     new Promise((resolve, reject) => {
       const id = nextGenerateId++;
-      pending = { id, resolve, reject, onText };
+      pending = { id, resolve, reject, onUpdate };
       worker.postMessage({ type: "generate", id, messages, tools, maxNewTokens: config.maxNewTokens });
     });
 }
@@ -217,6 +217,15 @@ function disableAgent() {
   for (const button of els.suggestions.querySelectorAll("button")) button.disabled = true;
 }
 
+function hasMemory64() {
+  try {
+    new WebAssembly.Memory({ address: "i64", initial: 1n });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function checkWebGPU() {
   // Browsers only offer WebGPU to secure pages: HTTPS, or http://localhost.
   // On plain HTTP to any other host navigator.gpu is missing even in a
@@ -230,9 +239,11 @@ async function checkWebGPU() {
     setStatus("error", "WebGPU needs HTTPS");
     return;
   }
-  if (!navigator.gpu) {
+  // wllama's build needs JSPI and 64-bit WebAssembly memory as well; see
+  // worker.js.
+  if (!navigator.gpu || typeof WebAssembly.Suspending !== "function" || !hasMemory64()) {
     showGpuError(
-      "This browser does not support WebGPU, which chat needs. Try a recent version of Chrome or Edge on a computer with a GPU.",
+      "This browser cannot run the model, which needs WebGPU and recent WebAssembly features. Try a recent version of Chrome or Edge on a computer with a GPU.",
     );
     disableAgent();
     setStatus("error", "WebGPU is not available");
@@ -241,8 +252,6 @@ async function checkWebGPU() {
   try {
     const adapter = await navigator.gpu.requestAdapter();
     if (!adapter) throw new Error("no adapter");
-    const f16 = adapter.features.has("shader-f16");
-    els.downloadNote.textContent = `The first load downloads about ${f16 ? "1.4" : "1.6"} GB. Your browser keeps it for next time.`;
   } catch {
     showGpuError("WebGPU is turned on in this browser, but it could not find a usable GPU.");
     disableAgent();
@@ -437,7 +446,7 @@ function createAgentCard({ onRegenerate }) {
   card.append(work, answer, errorBox, footer, statsDetail);
   els.thread.append(card);
 
-  const totals = { turns: 0, promptTokens: 0, lastPrefillMs: 0, prefillMs: 0, tokens: 0, reasoningTokens: 0, generateMs: 0, tools: 0, toolMs: 0 };
+  const totals = { turns: 0, promptTokens: 0, lastPromptRead: 0, lastPrefillMs: 0, prefillMs: 0, tokens: 0, reasoningTokens: 0, generateMs: 0, tools: 0, toolMs: 0 };
   let reasoningMs = 0;
   let live = ""; // the streaming turn's answer text
   let turn = null; // the streaming turn: { started, firstToken, tokens, reasoning, reasoningDone }
@@ -536,10 +545,9 @@ function createAgentCard({ onRegenerate }) {
       tick = setInterval(renderStatus, 250);
       renderStatus();
     },
-    stream(raw, tokens) {
+    stream(view) {
       if (!turn.firstToken) turn.firstToken = performance.now();
-      turn.tokens = tokens ?? turn.tokens;
-      const view = partialView(raw);
+      turn.tokens = view.tokens ?? turn.tokens;
       if (view.reasoning.trim()) {
         if (!turn.reasoning) turn.reasoning = reasoningBlock();
         turn.reasoning.body.textContent = view.reasoning;
@@ -555,6 +563,7 @@ function createAgentCard({ onRegenerate }) {
       clearInterval(tick);
       totals.turns++;
       totals.promptTokens = stats.promptTokens ?? totals.promptTokens;
+      totals.lastPromptRead = stats.promptTokensRead ?? totals.promptTokens;
       totals.lastPrefillMs = stats.prefillMs ?? 0;
       totals.prefillMs += stats.prefillMs ?? 0;
       totals.tokens += stats.completionTokens ?? 0;
@@ -625,7 +634,9 @@ function createAgentCard({ onRegenerate }) {
         ].join(" · ");
         const rows = [
           ["Model turns", totals.turns],
-          ["Prompt, last turn", `${totals.promptTokens.toLocaleString()} tokens · ${formatDuration(totals.lastPrefillMs)} · ${formatSpeed(totals.promptTokens, totals.lastPrefillMs)}`],
+          // Earlier turns stay in the model's cache, so a turn reads only
+          // the tokens added since the last one.
+          ["Prompt, last turn", `${totals.promptTokens.toLocaleString()} tokens, ${totals.lastPromptRead.toLocaleString()} new · ${formatDuration(totals.lastPrefillMs)} · ${formatSpeed(totals.lastPromptRead, totals.lastPrefillMs)}`],
           ["Prompt processing", `${formatDuration(totals.prefillMs)} over all turns`],
           ["Generated", `${totals.tokens.toLocaleString()} tokens, ~${totals.reasoningTokens.toLocaleString()} reasoning`],
           ["Generation", `${formatDuration(totals.generateMs)} · ${formatSpeed(totals.tokens, totals.generateMs)}`],
@@ -708,7 +719,6 @@ async function respond() {
       return;
     }
 
-    let raw = "";
     const steps = new Map();
     const events = runAgent({
       history,
@@ -716,17 +726,13 @@ async function respond() {
       tools,
       maxIterations: config.maxIterations,
       signal,
-      generate: generate((text, tokens) => {
-        raw += text;
-        card.stream(raw, tokens);
-      }),
+      generate: generate((view) => card.stream(view)),
       callTool: (name, args) => callTool(name, args, signal),
     });
 
     for await (const event of events) {
       switch (event.type) {
         case "turn_start":
-          raw = "";
           card.startTurn();
           break;
         case "turn_end":

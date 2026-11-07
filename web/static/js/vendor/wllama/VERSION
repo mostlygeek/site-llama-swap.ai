@@ -1,0 +1,6 @@
+wllama main at c10c21114984e37fe6ba4edbba446c28c5b7a954 (package.json 3.12.0, unreleased)
+llama.cpp d38bea34227bbf9069d62fdc239c98ab6e05435a (wllama's submodule)
+emsdk 4.0.20, emdawnwebgpu v20260317.182325
+
+Built with the main build steps of wllama's scripts/docker-compose.yml
+(GGML_WEBGPU=ON, GGML_WEBGPU_JSPI=ON), no compat build. See README.md.
