@@ -6,7 +6,8 @@
 //   { type: "generate", id, messages, tools, maxNewTokens }
 //   { type: "stop" }
 // Messages out:
-//   { type: "progress", phase, loaded, total }  bytes; phase is "download" or "read"
+//   { type: "progress", phase, loaded, total }  bytes; phase is "download",
+//                                              "save" or "read"
 //   { type: "status", text }                  a loading step
 //   { type: "ready", dtype }
 //   { type: "token", id, text, tokens }   tokens generated so far this turn
@@ -14,6 +15,7 @@
 //   { type: "error", id?, message, name? }
 
 import { loadModel, generateTurn } from "./model.js";
+import { downloadToCache } from "./download.js";
 
 let T = null;
 let loaded = null;
@@ -41,66 +43,18 @@ function modelFileURL(model, revision, file) {
   return `https://huggingface.co/${model}/resolve/${encodeURIComponent(revision)}/${file}`;
 }
 
-/**
- * Downloads files into the cache Transformers.js reads from, streaming each
- * response straight to storage.
- *
- * Left to itself, Transformers.js reads a whole file into memory (1.4 GB for
- * the weights) and only then writes it to the cache. On a phone the browser
- * can close the page for using too much memory before that write finishes,
- * and the next visit downloads everything again. Streaming keeps the download
- * out of page memory, and a file is kept once it has fully arrived.
- */
+/** Downloads the model files into the cache Transformers.js reads; see download.js. */
 async function precache(urls) {
   if (typeof caches === "undefined") return;
   const cache = await caches.open(CACHE_NAME);
-
-  const sizes = new Map();
-  const todo = [];
-  for (const url of urls) {
-    const hit = await cache.match(url);
-    if (hit) {
-      sizes.set(url, { loaded: 1, total: 1 });
-    } else {
-      todo.push(url);
+  try {
+    await downloadToCache(cache, urls, (p) => self.postMessage({ type: "progress", ...p }));
+  } catch (error) {
+    // fetch reports a dropped connection as a TypeError.
+    if (error instanceof TypeError) {
+      throw new Error(`The download stopped (${error.message}). Try again to continue where it left off.`);
     }
-  }
-  if (!todo.length) return;
-
-  const report = () => {
-    let loaded = 0;
-    let total = 0;
-    for (const s of sizes.values()) {
-      loaded += s.loaded;
-      total += s.total;
-    }
-    self.postMessage({ type: "progress", phase: "download", loaded, total });
-  };
-
-  for (const url of todo) {
-    const response = await fetch(url);
-    if (!response.ok || !response.body) {
-      throw new Error(`Downloading ${url.split("/").pop()} failed: HTTP ${response.status}`);
-    }
-    const size = { loaded: 0, total: Number(response.headers.get("content-length")) || 0 };
-    sizes.set(url, size);
-    const counted = response.body.pipeThrough(
-      new TransformStream({
-        transform(chunk, controller) {
-          size.loaded += chunk.byteLength;
-          report();
-          controller.enqueue(chunk);
-        },
-      }),
-    );
-    try {
-      await cache.put(url, new Response(counted, { headers: response.headers }));
-    } catch (error) {
-      throw new Error(
-        `The browser could not store the model (${error?.message ?? error}). ` +
-          "It needs about 1.6 GB of free storage.",
-      );
-    }
+    throw error;
   }
 }
 

@@ -81,7 +81,7 @@ function ensureModel() {
           setProgress(msg.loaded / msg.total);
           setStatus(
             "loading",
-            `${msg.phase === "read" ? "Loading the model into memory" : "Downloading the model"}: ` +
+            `${{ read: "Loading the model into memory", save: "Saving the model" }[msg.phase] ?? "Downloading the model"}: ` +
               `${formatBytes(msg.loaded)} of ${formatBytes(msg.total)}`,
           );
           break;
