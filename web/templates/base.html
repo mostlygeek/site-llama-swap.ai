@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}}</title>
+  <meta name="description" content="llama-swap runs many local AI models behind one OpenAI and Anthropic compatible API, starting and stopping inference servers on demand.">
+  <meta name="theme-color" content="#fafaf9" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0c0c0b" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" href="{{asset "img/favicon.svg"}}" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="{{asset "img/apple-touch-icon.png"}}">
+  <link rel="stylesheet" href="{{asset "css/site.css"}}">
+  {{block "head" .}}{{end}}
+</head>
+<body class="page-{{.Page}}">
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="/">
+        <img src="{{asset "img/logo-192.png"}}" alt="" width="28" height="28">
+        <span>llama-swap</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/help"{{if eq .Page "help"}} aria-current="page"{{end}}>Help agent</a>
+        <a href="https://github.com/mostlygeek/llama-swap#readme">Docs</a>
+        <a href="https://github.com/mostlygeek/llama-swap" class="nav-github">
+          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          <span>GitHub</span>
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    {{block "main" .}}{{end}}
+  </main>
+
+  {{if ne .Page "help"}}
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <span>llama-swap is open source under the MIT license.</span>
+      <a href="https://github.com/mostlygeek/llama-swap">github.com/mostlygeek/llama-swap</a>
+    </div>
+  </footer>
+  {{end}}
+
+  {{block "scripts" .}}{{end}}
+</body>
+</html>
