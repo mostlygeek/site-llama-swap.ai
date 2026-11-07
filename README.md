@@ -12,9 +12,13 @@ The website for [llama-swap.ai](https://llama-swap.ai). It is one Go binary that
 ## Running it
 
 ```shell
-make build
+make
 ./build/site-llama-swap -listen :8080
 ```
+
+`make` downloads llama-swap's source at the version in `go.mod` and builds it
+into the binary for the `code__*` tools. A plain `go build ./cmd/site` also
+works, but serves the `docs__*` tools only and logs a warning.
 
 Flags:
 
@@ -46,23 +50,24 @@ worker.js Transformers.js + WebGPU
 
 The docs and tools come from llama-swap's public
 [`docbot`](https://github.com/mostlygeek/llama-swap/tree/main/docbot) package,
-at the llama-swap version in `go.mod`. The source code for the `code__*` tools
-is in `internal/llamasrc/llama-swap-src.tar.gz`, which docbot's `gensource`
-tool writes from that same version, so the docs and the code always match.
+at the llama-swap version in `go.mod`. For the `code__*` tools, `make` runs
+docbot's `gensource` tool, which archives that same version's source from Go's
+module download into `internal/llamasrc/archive/`. The archive is not
+committed; every build makes it again, so the docs and the code always match.
 
 To move to a newer llama-swap:
 
 ```shell
-make update-llama-swap            # latest main
+make update-llama-swap            # latest commit on main
 make update-llama-swap REF=<sha>  # a specific commit
 make test
 ```
 
-Then commit `go.mod`, `go.sum` and the regenerated archive.
+Then commit `go.mod` and `go.sum`.
 
 ## Development
 
-- `make run` starts the site on `localhost:8080`.
+- `make run` builds and starts the site on `localhost:8080`.
+- The program is in `cmd/site`; the site itself is in `internal/server` and `web/`.
 - `make test` runs `gofmt`, `go vet`, the Go tests and the JavaScript tests. The JavaScript tests need Node 22 or later.
-- `make generate` rebuilds the llama-swap source archive. It needs no network once the module is downloaded.
 - The page uses no build step. `web/static/js/vendor/` holds pinned copies of [marked](https://github.com/markedjs/marked) 15.0.12 and [DOMPurify](https://github.com/cure53/DOMPurify) 3.2.7.

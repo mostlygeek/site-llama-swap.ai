@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/mostlygeek/site-llama-swap.ai/internal/llamasrc"
 )
 
 func newTestServer(t *testing.T) *Server {
@@ -77,13 +79,20 @@ func TestServer_HelpPageAgentConfig(t *testing.T) {
 	}
 
 	// The prompt keeps the tools the site serves and drops the ones it does
-	// not.
-	for _, want := range []string{"`docs__search_docs`", "`code__grep`", "## How to answer"} {
+	// not. The code__* tools are served only when the source was generated.
+	want := []string{"`docs__search_docs`", "## How to answer"}
+	unwanted := []string{"`config__get_config`", "`sys__now`"}
+	if llamasrc.Archive() != nil {
+		want = append(want, "`code__grep`")
+	} else {
+		unwanted = append(unwanted, "`code__grep`")
+	}
+	for _, want := range want {
 		if !strings.Contains(cfg.SystemPrompt, want) {
 			t.Errorf("system prompt is missing %s", want)
 		}
 	}
-	for _, unwanted := range []string{"`config__get_config`", "`sys__now`"} {
+	for _, unwanted := range unwanted {
 		if strings.Contains(cfg.SystemPrompt, unwanted) {
 			t.Errorf("system prompt still lists %s", unwanted)
 		}

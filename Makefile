@@ -1,18 +1,27 @@
 BUILD_DIR = build
+BINARY = $(BUILD_DIR)/site-llama-swap
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS = -s -w -X main.version=$(VERSION)
 
-.PHONY: build run test test-go test-js generate update-llama-swap clean
+.PHONY: all build generate run test test-go test-js update-llama-swap clean
 
-build:
-	CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/site-llama-swap .
+# `make` builds a binary you can run: ./build/site-llama-swap
+all: build
 
-run:
-	go run . -listen localhost:8080
+# generate first: it writes llama-swap's source, from the version in go.mod,
+# for the help agent's code__* tools
+build: generate
+	CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o $(BINARY) ./cmd/site
+
+generate:
+	go generate ./...
+
+run: build
+	$(BINARY) -listen localhost:8080
 
 test: test-go test-js
 
-test-go:
+test-go: generate
 	gofmt -l . | (! grep .)
 	go vet ./...
 	go test ./...
@@ -20,17 +29,13 @@ test-go:
 test-js:
 	node --test web/test/*.test.mjs
 
-# rebuild the llama-swap source archive from the version in go.mod
-generate:
-	go generate ./...
-
-# move to llama-swap's latest main commit, then regenerate the source archive
-# (use REF=<commit or branch> for another one)
-REF ?= main
+# move to the latest commit on llama-swap's main branch, or REF=<commit>.
+# The commit is looked up on GitHub because the Go module proxy can be a few
+# minutes behind a new push.
+REF ?= $(shell git ls-remote https://github.com/mostlygeek/llama-swap refs/heads/main | cut -f1)
 update-llama-swap:
 	go get -tool github.com/mostlygeek/llama-swap/docbot/gensource@$(REF)
 	go mod tidy
-	go generate ./...
 
 clean:
-	rm -rf $(BUILD_DIR)
+	rm -rf $(BUILD_DIR) internal/llamasrc/archive/*.tar.gz

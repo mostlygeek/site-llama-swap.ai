@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/mostlygeek/site-llama-swap.ai/internal/llamasrc"
 )
 
 // The MCP protocol itself is tested in llama-swap. These check that the
@@ -48,7 +50,16 @@ func mcpCall(t *testing.T, s *Server, method string, params map[string]any, out 
 	}
 }
 
+// requireSource skips a test that needs the generated source archive.
+func requireSource(t *testing.T) {
+	t.Helper()
+	if llamasrc.Archive() == nil {
+		t.Skip("llama-swap source archive not generated; run make test")
+	}
+}
+
 func TestMCP_ToolsList(t *testing.T) {
+	requireSource(t)
 	s := newTestServer(t)
 	var result struct {
 		Tools []struct {
@@ -79,6 +90,7 @@ func TestMCP_SearchDocs(t *testing.T) {
 // code__read must find the embedded archive and link to the llama-swap
 // commit in go.mod.
 func TestMCP_CodeReadUsesEmbeddedSource(t *testing.T) {
+	requireSource(t)
 	s := newTestServer(t)
 	var result toolResult
 	mcpCall(t, s, "tools/call", map[string]any{"name": "code__read", "arguments": map[string]any{"path": "docbot/docbot.go"}}, &result)

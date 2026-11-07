@@ -62,9 +62,21 @@ func New(opts Options) (*Server, error) {
 		opts.TransformersURL = DefaultTransformersURL
 	}
 
-	src, err := docbot.SourceFromArchive(llamasrc.Archive)
-	if err != nil {
-		return nil, fmt.Errorf("loading llama-swap source: %w", err)
+	log := opts.Logger
+	if log == nil {
+		log = slog.Default()
+	}
+
+	// Without the source archive the site still works, serving the docs__*
+	// tools only; docbot then leaves the code rules out of the prompt.
+	var src fs.FS
+	if archive := llamasrc.Archive(); archive != nil {
+		var err error
+		if src, err = docbot.SourceFromArchive(archive); err != nil {
+			return nil, fmt.Errorf("loading llama-swap source: %w", err)
+		}
+	} else {
+		log.Warn("llama-swap source is not embedded, so the code__* tools are off; build with make")
 	}
 	bot, err := docbot.New(docbot.Options{Name: "llama-swap.ai", Version: opts.Version, Source: src})
 	if err != nil {
@@ -74,10 +86,7 @@ func New(opts Options) (*Server, error) {
 	s := &Server{
 		mux: http.NewServeMux(),
 		bot: bot,
-		log: opts.Logger,
-	}
-	if s.log == nil {
-		s.log = slog.Default()
+		log: log,
 	}
 
 	s.agent = AgentConfig{
