@@ -1,0 +1,31 @@
+{{define "docs-search"}}
+<form class="docs-search" action="/docs/search" method="get" role="search">
+  <input type="search" name="q" value="{{.Query}}" placeholder="Search the docs" aria-label="Search the docs">
+</form>
+{{end}}
+
+{{define "docs-nav-list"}}
+{{$current := ""}}{{if .Doc}}{{$current = .Doc.ID}}{{end}}
+{{range .Docs.Nav}}
+<div class="nav-group">
+  <h2>{{.Name}}</h2>
+  <ul>
+    {{range .Pages}}
+    <li><a href="{{.URL}}"{{if eq .ID $current}} aria-current="page"{{end}}>{{.Title}}</a></li>
+    {{end}}
+  </ul>
+</div>
+{{end}}
+{{end}}
+
+{{define "docs-nav"}}
+<aside class="docs-sidebar" aria-label="Documentation">
+  {{template "docs-search" .}}
+  <nav class="docs-nav">{{template "docs-nav-list" .}}</nav>
+</aside>
+<details class="docs-nav-mobile">
+  <summary>Browse the docs</summary>
+  {{template "docs-search" .}}
+  <nav class="docs-nav">{{template "docs-nav-list" .}}</nav>
+</details>
+{{end}}

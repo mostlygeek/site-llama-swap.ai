@@ -1,0 +1,32 @@
+{{define "main"}}
+<div class="wrap docs-home">
+  <header class="docs-hero">
+    <h1>Documentation</h1>
+    <p class="lede-left">Guides for running llama-swap, and the full configuration reference.</p>
+    {{template "docs-search" .}}
+    <a class="chat-tile" href="/docs/chat">
+      <span class="chat-tile-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </span>
+      <span class="chat-tile-text">
+        <span class="chat-tile-title">Chat with the docs</span>
+        <span class="chat-tile-body">Ask a question and get an answer with config you can paste. It uses a small local model that runs in your browser, so your questions never leave your computer.</span>
+      </span>
+      <span class="chat-tile-go" aria-hidden="true">→</span>
+    </a>
+  </header>
+  {{range .Docs.Nav}}
+  <section class="docs-group">
+    <h2>{{.Name}}</h2>
+    <div class="docs-cards">
+      {{range .Pages}}
+      <a class="docs-card" href="{{.URL}}">
+        <span class="docs-card-title">{{.Title}}</span>
+        <span class="docs-card-summary">{{.Summary}}</span>
+      </a>
+      {{end}}
+    </div>
+  </section>
+  {{end}}
+</div>
+{{end}}

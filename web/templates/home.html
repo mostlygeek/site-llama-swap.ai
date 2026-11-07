@@ -1,0 +1,71 @@
+{{define "main"}}
+<section class="hero wrap">
+  <img class="hero-logo" src="{{asset "img/logo-192.png"}}" alt="llama-swap logo" width="96" height="96">
+  <h1>Run many local AI models behind one API.</h1>
+  <p class="lede">
+    llama-swap starts the model each request asks for and stops the one it replaces.
+    It works with llama.cpp, vLLM and any other OpenAI or Anthropic compatible server.
+    One binary, one config file, no other dependencies.
+  </p>
+  <div class="actions">
+    <a class="button primary" href="https://github.com/mostlygeek/llama-swap#installation">Install llama-swap</a>
+    <a class="button" href="/docs">Read the docs</a>
+  </div>
+</section>
+
+<section class="wrap quickstart">
+  <div class="qs-step">
+    <h2><span class="step-num">1</span> Install</h2>
+    <pre><code><span class="c"># macOS and Linux</span>
+brew tap mostlygeek/llama-swap
+brew install llama-swap</code></pre>
+    <p class="muted">Also available as <a href="https://github.com/mostlygeek/llama-swap#docker-install-download-images">Docker images</a>, on WinGet, and as <a href="https://github.com/mostlygeek/llama-swap/releases">release binaries</a> for Linux, macOS, Windows and FreeBSD.</p>
+  </div>
+  <div class="qs-step">
+    <h2><span class="step-num">2</span> Configure</h2>
+    <pre><code><span class="c"># config.yaml</span>
+models:
+  qwen:
+    cmd: llama-server --port ${PORT} -m qwen.gguf
+  gemma:
+    cmd: llama-server --port ${PORT} -m gemma.gguf
+    ttl: 300</code></pre>
+  </div>
+  <div class="qs-step">
+    <h2><span class="step-num">3</span> Run</h2>
+    <pre><code>llama-swap --config config.yaml
+
+curl localhost:8080/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"gemma","messages":[...]}'</code></pre>
+    <p class="muted">The <code>model</code> field picks which server runs. It listens on port 8080 and serves a web UI at <code>/ui</code>.</p>
+  </div>
+</section>
+
+<section class="wrap features">
+  <div class="feature">
+    <h3>Swaps on demand</h3>
+    <p>Each request names a model. llama-swap loads it, and unloads the previous one, or keeps several loaded at once with a <code>matrix</code>.</p>
+  </div>
+  <div class="feature">
+    <h3>Any inference server</h3>
+    <p>llama.cpp and its forks, vLLM, stable-diffusion.cpp, whisper.cpp, ComfyUI and more. Upgrade them whenever you like.</p>
+  </div>
+  <div class="feature">
+    <h3>Standard APIs</h3>
+    <p>OpenAI chat, completions, responses, embeddings, audio, images and realtime, plus Anthropic messages.</p>
+  </div>
+  <div class="feature">
+    <h3>Built-in tools</h3>
+    <p>Unload idle models with <code>ttl</code>, preload with <code>hooks</code>, rewrite requests with <code>filters</code>, and watch it all in the web UI.</p>
+  </div>
+</section>
+
+<section class="wrap help-callout">
+  <div>
+    <h2>Questions about your config?</h2>
+    <p>Chat with the docs: a small fine-tuned model searches llama-swap's documentation and source code to answer. It runs locally in your browser with WebGPU, so nothing you type leaves your computer.</p>
+  </div>
+  <a class="button primary" href="/docs/chat">Chat with the docs</a>
+</section>
+{{end}}

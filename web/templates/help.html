@@ -1,0 +1,59 @@
+{{define "main"}}
+<div class="chat" id="chat">
+  <div class="chat-bar">
+    <div class="wrap chat-bar-inner">
+      <div class="model-status" id="model-status">
+        <span class="dot" id="model-dot"></span>
+        <span id="model-label">Model not loaded</span>
+      </div>
+      <button class="button small ghost" id="new-chat" type="button" hidden>New chat</button>
+    </div>
+    <div class="progress" id="progress" hidden><div class="progress-fill" id="progress-fill"></div></div>
+  </div>
+
+  <div class="messages" id="messages" aria-live="polite">
+    <div class="wrap">
+      <section class="intro" id="intro">
+        <p class="docs-crumb"><a href="/docs">Docs</a> / Chat</p>
+        <h1>Chat with the docs</h1>
+        <p>
+          Ask about installing, configuring or troubleshooting llama-swap. The agent searches
+          llama-swap's documentation and source code, then answers with config you can paste.
+        </p>
+        <div class="notice" id="notice">
+          <p>
+            It runs <a href="https://huggingface.co/llama-swap/LFM3-1.7B-HelpAgent">LFM3-1.7B-HelpAgent</a>
+            in your browser with WebGPU. Your questions stay on your computer; only the documentation
+            lookups are sent to this site.
+          </p>
+          <p class="muted" id="download-note">
+            The first load downloads about 1.4 GB. Your browser keeps it for next time.
+          </p>
+          <p class="error" id="gpu-error" hidden></p>
+          <button class="button primary" id="load-model" type="button">Load the model</button>
+        </div>
+        <div class="suggestions" id="suggestions"></div>
+      </section>
+      <div id="thread"></div>
+    </div>
+  </div>
+
+  <form class="composer" id="composer">
+    <div class="wrap composer-inner">
+      <textarea id="input" rows="1" placeholder="Ask a question about llama-swap" aria-label="Your question" autocomplete="off"></textarea>
+      <button class="button primary icon" id="send" type="submit" aria-label="Send">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 19V5M5 12l7-7 7 7"/></svg>
+      </button>
+      <button class="button icon" id="stop" type="button" aria-label="Stop" hidden>
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>
+      </button>
+    </div>
+    <p class="wrap composer-note muted">Answers can be wrong, especially config keys. Check them against <a href="https://github.com/mostlygeek/llama-swap/blob/main/config-schema.json">the schema</a>.</p>
+  </form>
+</div>
+{{end}}
+
+{{define "scripts"}}
+<script type="application/json" id="agent-config">{{.AgentJSON}}</script>
+<script type="module" src="{{asset "js/help.js"}}"></script>
+{{end}}

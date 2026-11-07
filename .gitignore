@@ -1,0 +1,3 @@
+build/
+internal/llamasrc/archive/*.tar.gz
+certs/
