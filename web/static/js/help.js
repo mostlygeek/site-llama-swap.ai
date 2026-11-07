@@ -213,7 +213,7 @@ function disableAgent() {
   els.load.disabled = true;
   els.input.disabled = true;
   els.send.disabled = true;
-  els.input.placeholder = "The help agent needs WebGPU";
+  els.input.placeholder = "Chat needs WebGPU";
   for (const button of els.suggestions.querySelectorAll("button")) button.disabled = true;
 }
 
@@ -232,7 +232,7 @@ async function checkWebGPU() {
   }
   if (!navigator.gpu) {
     showGpuError(
-      "This browser does not support WebGPU, which the help agent needs. Try a recent version of Chrome or Edge on a computer with a GPU.",
+      "This browser does not support WebGPU, which chat needs. Try a recent version of Chrome or Edge on a computer with a GPU.",
     );
     disableAgent();
     setStatus("error", "WebGPU is not available");

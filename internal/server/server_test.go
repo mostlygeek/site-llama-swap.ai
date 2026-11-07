@@ -36,7 +36,7 @@ func TestServer_HomePage(t *testing.T) {
 		t.Fatalf("status = %d", w.Code)
 	}
 	body := w.Body.String()
-	for _, want := range []string{"Run many local AI models", `href="/help"`, "/static/css/site.css?v=" + s.assetVersion} {
+	for _, want := range []string{"Run many local AI models", `href="/docs/chat"`, "/static/css/site.css?v=" + s.assetVersion} {
 		if !strings.Contains(body, want) {
 			t.Errorf("home page is missing %q", want)
 		}
@@ -62,7 +62,7 @@ func agentConfigFromPage(t *testing.T, body string) AgentConfig {
 
 func TestServer_HelpPageAgentConfig(t *testing.T) {
 	s := newTestServer(t)
-	w := get(t, s, "/help")
+	w := get(t, s, "/docs/chat")
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d", w.Code)
 	}

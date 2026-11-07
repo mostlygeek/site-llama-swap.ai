@@ -126,7 +126,10 @@ func New(opts Options) (*Server, error) {
 
 func (s *Server) routes() {
 	s.mux.HandleFunc("GET /{$}", s.page("home"))
-	s.mux.HandleFunc("GET /help", s.page("help"))
+	// The chat lives under the docs now; keep old links working.
+	s.mux.HandleFunc("GET /help", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/docs/chat", http.StatusMovedPermanently)
+	})
 	s.mux.Handle("/api/mcp", s.bot)
 	s.docsRoutes()
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -227,7 +230,7 @@ func (s *Server) render(w http.ResponseWriter, status int, name string, data pag
 	case "home":
 		data.Title = "llama-swap: hot-swap local AI models"
 	case "help":
-		data.Title = "Help agent · llama-swap"
+		data.Title = "Chat with the docs · llama-swap"
 		agentJSON, err := json.Marshal(s.agent)
 		if err != nil {
 			http.Error(w, "internal error", http.StatusInternalServerError)

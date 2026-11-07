@@ -1382,3 +1382,73 @@ pre.item-body {
     padding-top: 28px;
   }
 }
+
+/* The "Chat with the docs" tile on the docs index. */
+
+.chat-tile {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 18px 20px;
+  border-radius: 14px;
+  text-decoration: none;
+  color: var(--fg);
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+  background:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 60%),
+    var(--surface);
+  box-shadow: 0 8px 24px -16px color-mix(in srgb, var(--accent) 70%, transparent);
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+
+.chat-tile:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px -14px color-mix(in srgb, var(--accent) 80%, transparent);
+}
+
+.chat-tile-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+.chat-tile-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.chat-tile-title {
+  font-weight: 650;
+  font-size: 1.05rem;
+}
+
+.chat-tile-body {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.chat-tile-go {
+  margin-left: auto;
+  flex: none;
+  font-size: 1.3rem;
+  color: var(--accent-strong);
+  transition: transform 0.15s;
+}
+
+.chat-tile:hover .chat-tile-go {
+  transform: translateX(3px);
+}
+
+.intro .docs-crumb {
+  margin: 24px 0 -16px;
+}

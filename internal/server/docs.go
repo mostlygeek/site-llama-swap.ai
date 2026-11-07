@@ -15,6 +15,7 @@ func (s *Server) docsRoutes() {
 	s.mux.HandleFunc("GET /docs", s.docsIndex)
 	s.mux.HandleFunc("GET /docs/{$}", s.docsIndex)
 	s.mux.HandleFunc("GET /docs/search", s.docsSearch)
+	s.mux.HandleFunc("GET /docs/chat", s.page("help"))
 	s.mux.HandleFunc("GET /docs/highlight.css", s.docsHighlightCSS)
 	s.mux.HandleFunc("GET /docs/"+docsite.ConfigID, s.docsConfig)
 	s.mux.HandleFunc("GET /docs/{id...}", s.docsPage)

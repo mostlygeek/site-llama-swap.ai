@@ -5,7 +5,7 @@ The website for [llama-swap.ai](https://llama-swap.ai). It is one Go binary that
 | Path | What it is |
 |---|---|
 | `/` | The landing page. |
-| `/help` | The help agent. It runs [llama-swap/LFM3-1.7B-HelpAgent](https://huggingface.co/llama-swap/LFM3-1.7B-HelpAgent) in the browser with WebGPU. |
+| `/docs/chat` | Chat with the docs (the help agent; `/help` redirects here). It runs [llama-swap/LFM3-1.7B-HelpAgent](https://huggingface.co/llama-swap/LFM3-1.7B-HelpAgent) in the browser with WebGPU. |
 | `/docs` | llama-swap's documentation as HTML: the knowledge base, a configuration reference from `config.example.yaml`, and search. |
 | `/api/mcp` | The documentation and source code tools the help agent calls, served by llama-swap's `docbot` package: the same MCP protocol and tools as llama-swap's own `/api/mcp`, minus the ones that need a running llama-swap. |
 | `/healthz` | Returns `ok`. |
@@ -45,7 +45,7 @@ Browsers only turn on WebGPU for pages served over HTTPS or from
 `http://localhost`. If you open the site on another machine by name, such as
 `http://devbox:8181`, the help agent reports that WebGPU needs HTTPS. Either
 open it through an SSH tunnel (`ssh -L 8181:localhost:8181 devbox`, then
-`http://localhost:8181`), or serve it over HTTPS with a development
+`http://localhost:8181/docs/chat`), or serve it over HTTPS with a development
 certificate as below.
 
 [mkcert](https://github.com/FiloSottile/mkcert) makes a certificate signed by
@@ -80,7 +80,7 @@ without warnings.
    Never copy `rootCA-key.pem`: anyone with it can make certificates your
    browser trusts for any site.
 
-4. Restart the browser and open `https://devbox:8443/help`.
+4. Restart the browser and open `https://devbox:8443/docs/chat`.
 
 If the browser still warns about the certificate, check that the name in the
 address bar is one you passed to `mkcert` in step 1. Make a new certificate
