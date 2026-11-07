@@ -71,8 +71,8 @@ func TestServer_HelpPageAgentConfig(t *testing.T) {
 	if cfg.Model != DefaultModel || cfg.Revision != DefaultModelRevision {
 		t.Errorf("model = %s@%s", cfg.Model, cfg.Revision)
 	}
-	if cfg.TransformersURL != DefaultTransformersURL {
-		t.Errorf("transformersUrl = %s", cfg.TransformersURL)
+	if cfg.ModelFile != DefaultModelFile {
+		t.Errorf("modelFile = %s", cfg.ModelFile)
 	}
 	if len(cfg.Suggestions) == 0 {
 		t.Error("no suggestions")

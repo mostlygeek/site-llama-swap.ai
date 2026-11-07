@@ -1,10 +1,10 @@
-// The Help agent's loop and the parsing of the model's raw output.
+// The Help agent's loop.
 //
-// llama-swap's own Help page sends requests to llama-server, which applies the
-// chat template and parses tool calls on the server. Here the model runs in
-// the browser, so both jobs happen in this file. Nothing in it touches the DOM,
-// fetch or the model directly; help.js passes those in, which keeps this file
-// testable under Node (see web/static/js/agent.test.mjs).
+// The model runs in the browser with wllama, whose llama.cpp applies the chat
+// template and parses reasoning and tool calls, as llama-server does for
+// llama-swap's own Help page. Nothing in this file touches the DOM, fetch or
+// the model directly; help.js passes those in, which keeps it testable under
+// Node (see web/test/agent.test.mjs).
 
 /**
  * Converts MCP tools/list entries into the OpenAI-shaped tool definitions the
@@ -22,121 +22,21 @@ export function toolDefinitions(mcpTools) {
   }));
 }
 
-const THINK_CLOSE = "</think>";
-const END_OF_TURN = "<|im_end|>";
-
-// The model writes tool calls in LFM3's XML format, which the chat template
-// also uses to render past calls:
-//
-//   <tool_call>
-//   <function=docs__search_docs>
-//   <parameter=query>
-//   ttl unload
-//   </parameter>
-//   </function>
-//   </tool_call>
-const TOOL_CALL = /<tool_call>\s*<function=([^\n>]+)>([\s\S]*?)<\/function>\s*<\/tool_call>/g;
-const PARAMETER = /<parameter=([^>\n]+)>\n?([\s\S]*?)\n?<\/parameter>/g;
-
-/**
- * Converts a parameter's text to the type its JSON schema asks for, the way
- * llama-server does: strings stay as written, anything else is parsed as JSON
- * when it can be.
- */
-export function coerceParameter(value, schema) {
-  const type = schema?.type;
-  if (type === "string") return value;
-  if (type === "integer" || type === "number") {
-    const n = Number(value.trim());
-    return Number.isFinite(n) ? n : value;
-  }
-  if (type === "boolean") {
-    const v = value.trim().toLowerCase();
-    if (v === "true") return true;
-    if (v === "false") return false;
-    return value;
-  }
-  try {
-    return JSON.parse(value);
-  } catch {
-    return value;
-  }
-}
-
-/**
- * Splits one complete model turn into reasoning, visible content and tool
- * calls. The generation prompt ends with "<think>", so the raw text starts
- * inside the reasoning.
- *
- * @param {string} raw the decoded model output, special tokens included
- * @param {Map<string, object>} [toolsByName] tool definitions, for argument types
- */
-export function parseOutput(raw, toolsByName = new Map()) {
-  let text = raw;
-  const end = text.indexOf(END_OF_TURN);
-  if (end >= 0) text = text.slice(0, end);
-
-  let reasoning = "";
-  const close = text.indexOf(THINK_CLOSE);
-  if (close >= 0) {
-    reasoning = text.slice(0, close).replace(/^<think>/, "").replace(/^\n/, "");
-    text = text.slice(close + THINK_CLOSE.length).replace(/^\s+/, "");
-  } else if (!text.includes("<tool_call>")) {
-    // The turn ran out of tokens before the reasoning closed.
-    return { reasoning: text.replace(/^<think>\n?/, ""), content: "", toolCalls: [], finished: end >= 0, thinkingUnclosed: true };
-  }
-
-  const toolCalls = [];
-  for (const match of text.matchAll(TOOL_CALL)) {
-    const name = match[1].trim();
-    const properties = toolsByName.get(name)?.function?.parameters?.properties ?? {};
-    const args = {};
-    for (const param of match[2].matchAll(PARAMETER)) {
-      const key = param[1].trim();
-      args[key] = coerceParameter(param[2], properties[key]);
-    }
-    toolCalls.push({ name, arguments: args });
-  }
-
-  const content = text.replace(TOOL_CALL, "").trim();
-  return { reasoning, content, toolCalls, finished: end >= 0, thinkingUnclosed: false };
-}
-
-/**
- * What to show while a turn is still streaming: reasoning until the model
- * closes it, then the answer with any half-written tool call hidden.
- */
-export function partialView(raw) {
-  const close = raw.indexOf(THINK_CLOSE);
-  if (close < 0) {
-    return { reasoning: raw.replace(/^<think>\n?/, ""), content: "", thinking: true, callingTool: false };
-  }
-  let content = raw.slice(close + THINK_CLOSE.length).replace(/^\s+/, "");
-  const end = content.indexOf(END_OF_TURN);
-  if (end >= 0) content = content.slice(0, end);
-  const toolStart = content.indexOf("<tool_call>");
-  const callingTool = toolStart >= 0;
-  if (callingTool) content = content.slice(0, toolStart);
-  // Hide a tag the model is part way through writing.
-  content = content.replace(/<[a-z_|]*$/, "");
-  return { reasoning: raw.slice(0, close).replace(/^\n/, ""), content: content.trimEnd(), thinking: false, callingTool };
-}
-
 /**
  * Runs the agent until the model answers without calling a tool, yielding
  * events for the UI. `history` is the conversation so far, without the
  * system prompt; the loop appends to it in place, so a follow-up question
  * continues the same conversation.
  *
- * Messages use the shape the chat template expects. In particular tool call
- * arguments are objects, not JSON strings: the template refuses strings.
+ * Messages use the OpenAI shape. Tool call arguments are kept as objects,
+ * which llama.cpp passes to the chat template as they are.
  *
  * @param {object} opts
  * @param {object[]} opts.history
  * @param {string} opts.systemPrompt
  * @param {object[]} opts.tools from toolDefinitions()
- * @param {(messages: object[], tools: object[]) => Promise<{text: string, promptTokens?: number, completionTokens?: number, generateMs?: number}>} opts.generate
- *   runs one model turn; the caller shows the streamed text itself
+ * @param {(messages: object[], tools: object[]) => Promise<{reasoning: string, content: string, toolCalls: {name: string, arguments: object}[], finishReason?: string}>} opts.generate
+ *   runs one model turn (see model.js); the caller shows the streamed text itself
  * @param {(name: string, args: object) => Promise<{text: string, isError: boolean}>} opts.callTool
  * @param {number} [opts.maxIterations]
  * @param {AbortSignal} [opts.signal]
@@ -167,21 +67,23 @@ export async function* runAgent({ history, systemPrompt, tools, generate, callTo
       return;
     }
 
-    const parsed = parseOutput(result.text, toolsByName);
-    const assistant = { role: "assistant", content: parsed.content };
-    if (parsed.reasoning) assistant.reasoning_content = parsed.reasoning;
-    if (parsed.toolCalls.length) {
-      assistant.tool_calls = parsed.toolCalls.map((call) => ({
+    const toolCalls = result.toolCalls ?? [];
+    const assistant = { role: "assistant", content: result.content ?? "" };
+    if (result.reasoning) assistant.reasoning_content = result.reasoning;
+    if (toolCalls.length) {
+      assistant.tool_calls = toolCalls.map((call) => ({
         id: `call_${++callCounter}`,
         type: "function",
         function: { name: call.name, arguments: call.arguments },
       }));
     }
     history.push(assistant);
-    yield { type: "turn_end", message: assistant, stats: result, parsed };
+    yield { type: "turn_end", message: assistant, stats: result };
 
     if (!assistant.tool_calls) {
-      yield { type: "done", reason: parsed.thinkingUnclosed ? "length" : "stop" };
+      // Out of tokens before writing an answer: still reasoning.
+      const ranOut = result.finishReason === "length" && !assistant.content;
+      yield { type: "done", reason: ranOut ? "length" : "stop" };
       return;
     }
 

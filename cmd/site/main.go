@@ -22,9 +22,9 @@ var version = "dev"
 
 func main() {
 	listen := flag.String("listen", ":8080", "address to listen on")
-	model := flag.String("model", server.DefaultModel, "Hugging Face repository of the Help agent's ONNX model")
+	model := flag.String("model", server.DefaultModel, "Hugging Face repository of the Help agent's GGUF model")
 	revision := flag.String("model-revision", server.DefaultModelRevision, "model repository commit or branch to load")
-	transformers := flag.String("transformers-url", server.DefaultTransformersURL, "URL of the Transformers.js build the browser imports")
+	modelFile := flag.String("model-file", server.DefaultModelFile, "GGUF file in the model repository")
 	tlsCert := flag.String("tls-cert-file", "", "TLS certificate file; serves HTTPS when set with -tls-key-file")
 	tlsKey := flag.String("tls-key-file", "", "TLS private key file")
 	showVersion := flag.Bool("version", false, "print the version and exit")
@@ -41,10 +41,10 @@ func main() {
 	}
 
 	srv, err := server.New(server.Options{
-		Version:         version,
-		Model:           *model,
-		ModelRevision:   *revision,
-		TransformersURL: *transformers,
+		Version:       version,
+		Model:         *model,
+		ModelRevision: *revision,
+		ModelFile:     *modelFile,
 	})
 	if err != nil {
 		slog.Error("starting server", "error", err)

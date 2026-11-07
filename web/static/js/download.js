@@ -1,14 +1,14 @@
-// Resumable downloads of the model files into the browser cache.
+// Resumable downloads of the model file into the browser cache.
 //
-// Transformers.js reads a model file from Cache Storage when it finds one
-// under the file's URL, so the worker fills that cache before loading the
-// model. A file is downloaded in parts with HTTP range requests, and each part
-// is saved as it arrives. If the page is closed or the connection drops, the
-// next attempt skips the parts already saved. Once every part is in, they are
-// streamed into the one cache entry Transformers.js reads, and deleted.
+// The worker keeps the GGUF file in Cache Storage under its URL and hands it
+// to wllama from there. A file is downloaded in parts with HTTP range
+// requests, and each part is saved as it arrives. If the page is closed or the
+// connection drops, the next attempt skips the parts already saved. Once every
+// part is in, they are streamed into one cache entry for the whole file, and
+// deleted.
 //
 // Nothing here holds a whole file in memory: on a phone the browser closes a
-// page that uses too much, and the model's weights are 1.4 GB.
+// page that uses too much, and the model's weights are 1.1 GB.
 
 export const PART_SIZE = 64 * 1024 * 1024;
 export const PARTS_CACHE = "help-agent-download-parts";
@@ -37,7 +37,7 @@ async function put(cache, key, response) {
     await cache.put(key, response);
   } catch (error) {
     if (error?.name === "QuotaExceededError") {
-      throw new Error("The browser has no room to store the model. It needs about 3 GB of free storage while it downloads.");
+      throw new Error("The browser has no room to store the model. It needs about 2.5 GB of free storage while it downloads.");
     }
     throw error;
   }
@@ -46,7 +46,7 @@ async function put(cache, key, response) {
 /**
  * Downloads urls into cache, skipping files already there.
  *
- * @param {Cache} cache the cache Transformers.js reads
+ * @param {Cache} cache the cache the worker loads the model from
  * @param {string[]} urls
  * @param {(progress: {phase: "download" | "save", loaded: number, total: number}) => void} onProgress
  * @param {{partSize?: number, partsCache?: Cache}} [options]
@@ -166,7 +166,7 @@ async function downloadInParts(cache, parts, url, partSize, file, report) {
     await savePart(index, await fetchRange(url, start, start + length - 1));
   }
 
-  // Join the parts into the entry Transformers.js reads, one part at a time.
+  // Join the parts into one entry for the whole file, one part at a time.
   let next = 0;
   let joined = 0;
   const joinedBody = new ReadableStream({

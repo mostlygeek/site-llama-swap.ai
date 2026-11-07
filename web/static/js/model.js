@@ -1,140 +1,118 @@
-// Loading and running LFM3-1.7B-HelpAgent with Transformers.js.
+// Loading and running LFM3-1.7B-HelpAgent with wllama, llama.cpp built for
+// WebAssembly and WebGPU.
 //
-// This follows the model card's "Run it in the browser" section. The
-// Transformers.js module is passed in rather than imported, so the same code
-// runs in the browser worker (WebGPU) and under Node for testing (CPU).
+// llama.cpp applies the chat template and parses the model's reasoning and
+// tool calls, as llama-server does with --jinja on llama-swap's own Help page.
+// The wllama instance is passed in, so tests can use a fake one.
+
+/** The sampling settings the model card's scores were measured with. */
+export const SAMPLING = { temperature: 0.1, top_k: 50, repeat_penalty: 1.1 };
 
 /**
- * Loads the tokenizer and model.
+ * The wllama loadModel() parameters.
  *
- * @param {object} T the Transformers.js module
- * @param {object} opts
- * @param {string} opts.model Hugging Face repository id
- * @param {string} opts.revision commit or branch
- * @param {string} opts.device "webgpu" in the browser
- * @param {string} opts.dtype "q4f16" or "q4"
- * @param {(info: object) => void} [opts.onProgress] Transformers.js progress events
+ * @param {number} contextSize the context window in tokens
  */
-export async function loadModel(T, { model, revision, device, dtype, onProgress }) {
-  const options = { revision, progress_callback: onProgress };
-  const tokenizer = await T.AutoTokenizer.from_pretrained(model, options);
-  const lm = await T.AutoModelForCausalLM.from_pretrained(model, { ...options, dtype, device });
-  return { tokenizer, model: lm };
-}
-
-/**
- * Reads a prompt into a new cache in chunks, leaving the last token for
- * generate(). One pass over a long Docs Agent prompt runs the GPU out of
- * memory or, with q4f16, gives wrong output, so the model card prefills 256
- * tokens at a time.
- */
-async function prefill(T, model, ids, { chunkSize = 256, shouldStop } = {}) {
-  const cache = new T.DynamicCache();
-  const total = ids.dims[1];
-  try {
-    for (let start = 0; start < total - 1; start += chunkSize) {
-      if (shouldStop?.()) {
-        const error = new Error("Generation stopped");
-        error.name = "AbortError";
-        throw error;
-      }
-      const end = Math.min(start + chunkSize, total - 1);
-      const output = await model({
-        input_ids: ids.slice(null, [start, end]),
-        attention_mask: T.ones([1, end]),
-        past_key_values: cache,
-        num_logits_to_keep: new T.Tensor("int64", [1n], []),
-      });
-      output.logits.dispose();
-      cache.update(
-        Object.fromEntries(
-          Object.entries(output)
-            .filter(([name]) => name.startsWith("present"))
-            .map(([name, tensor]) => [
-              name.replace("present_conv", "past_conv").replace("present", "past_key_values"),
-              tensor,
-            ]),
-        ),
-      );
-    }
-  } catch (error) {
-    await cache.dispose();
-    throw error;
-  }
-  return cache;
+export function loadParams(contextSize) {
+  return {
+    n_ctx: contextSize,
+    // One conversation at a time. Its cache carries over between turns, so
+    // each turn only reads the tokens added since the last one.
+    n_parallel: 1,
+    jinja: true,
+    // Return the reasoning separately from the answer.
+    reasoning_format: "deepseek",
+  };
 }
 
 /**
  * Runs one model turn.
  *
- * @param {object} T the Transformers.js module
- * @param {{tokenizer: object, model: object}} loaded from loadModel()
+ * @param {object} wllama a loaded Wllama instance
  * @param {object} opts
  * @param {object[]} opts.messages chat messages, system prompt first
  * @param {object[]} opts.tools OpenAI-shaped tool definitions
  * @param {number} opts.maxNewTokens
- * @param {(text: string, tokens: number) => void} [opts.onText] streamed text,
- *   special tokens included, with the number of tokens generated so far
- * @param {object} [opts.stoppingCriteria] an InterruptableStoppingCriteria
- * @param {() => boolean} [opts.shouldStop] checked between prefill chunks
+ * @param {(view: {reasoning: string, content: string, thinking: boolean, callingTool: boolean, tokens: number}) => void} [opts.onUpdate]
+ *   called as text streams in
+ * @param {AbortSignal} [opts.signal]
  */
-export async function generateTurn(T, { tokenizer, model }, { messages, tools, maxNewTokens, onText, stoppingCriteria, shouldStop }) {
-  const prompt = tokenizer.apply_chat_template(messages, {
+export async function generateTurn(wllama, { messages, tools, maxNewTokens, onUpdate, signal }) {
+  const stream = await wllama.createChatCompletion({
+    messages,
     tools,
-    add_generation_prompt: true,
-    tokenize: false,
+    max_tokens: maxNewTokens,
+    stream: true,
+    timings_per_token: true,
+    abortSignal: signal,
+    ...SAMPLING,
   });
-  const inputs = tokenizer(prompt, { add_special_tokens: false, return_tensors: "pt" });
-  const promptTokens = inputs.input_ids.dims[1];
 
-  const t0 = performance.now();
-  const cache = await prefill(T, model, inputs.input_ids, { shouldStop });
-  const t1 = performance.now();
-
-  // Count tokens as they stream, and note how many were reasoning: the count
-  // when "</think>" arrives. It is a single special token, which the streamer
-  // emits as soon as it is generated.
+  let reasoning = "";
+  let content = "";
+  const calls = []; // by index: { name, arguments } with arguments as a JSON string
+  let finishReason = null;
+  let timings = null;
+  let usage = null;
   let tokens = 0;
+  // Reasoning comes first, so the token count when anything else arrives is
+  // how many were reasoning.
   let reasoningTokens;
-  let streamed = "";
-  const streamer = new T.TextStreamer(tokenizer, {
-    skip_prompt: true,
-    skip_special_tokens: false,
-    token_callback_function: (ids) => {
-      tokens += ids.length;
-    },
-    callback_function: (text) => {
-      streamed += text;
-      if (reasoningTokens === undefined && streamed.includes("</think>")) {
-        reasoningTokens = tokens;
-      }
-      onText?.(text, tokens);
-    },
-  });
 
-  let output;
-  try {
-    output = await model.generate({
-      ...inputs,
-      past_key_values: cache,
-      max_new_tokens: maxNewTokens,
-      streamer,
-      ...(stoppingCriteria ? { stopping_criteria: stoppingCriteria } : {}),
+  for await (const chunk of stream) {
+    if (chunk.timings) timings = chunk.timings;
+    if (chunk.usage) usage = chunk.usage;
+    const choice = chunk.choices?.[0];
+    if (!choice) continue;
+    const delta = choice.delta ?? {};
+    if (choice.finish_reason) finishReason = choice.finish_reason;
+
+    tokens = timings?.predicted_n ?? tokens + 1;
+    if (delta.reasoning_content) reasoning += delta.reasoning_content;
+    if ((delta.content || delta.tool_calls) && reasoningTokens === undefined) {
+      reasoningTokens = reasoning ? Math.max(0, tokens - 1) : 0;
+    }
+    if (delta.content) content += delta.content;
+    for (const call of delta.tool_calls ?? []) {
+      const slot = (calls[call.index ?? calls.length] ??= { name: "", arguments: "" });
+      if (call.function?.name) slot.name += call.function.name;
+      if (call.function?.arguments) slot.arguments += call.function.arguments;
+    }
+
+    onUpdate?.({
+      reasoning,
+      content,
+      thinking: !content && calls.length === 0,
+      callingTool: calls.length > 0,
+      tokens,
     });
-  } finally {
-    await cache.dispose();
   }
-  const t2 = performance.now();
 
-  const generated = output.slice(null, [promptTokens, null]);
-  const text = tokenizer.batch_decode(generated, { skip_special_tokens: false })[0];
+  const toolCalls = calls.filter(Boolean).map((call) => ({ name: call.name, arguments: parseArguments(call.arguments) }));
 
   return {
-    text,
-    promptTokens,
-    completionTokens: generated.dims[1],
-    reasoningTokens,
-    prefillMs: t1 - t0,
-    generateMs: t2 - t1,
+    reasoning,
+    content: content.trim(),
+    toolCalls,
+    finishReason,
+    // The whole prompt, and how much of it was read this turn rather than
+    // taken from the cache of the turn before.
+    promptTokens: usage?.prompt_tokens ?? (timings ? timings.prompt_n + (timings.cache_n ?? 0) : undefined),
+    promptTokensRead: timings?.prompt_n,
+    completionTokens: usage?.completion_tokens ?? timings?.predicted_n ?? tokens,
+    reasoningTokens: reasoningTokens ?? (reasoning ? tokens : 0),
+    prefillMs: timings?.prompt_ms,
+    generateMs: timings?.predicted_ms,
   };
+}
+
+/** Tool call arguments arrive as a JSON string; the agent keeps objects. */
+export function parseArguments(text) {
+  if (!text) return {};
+  try {
+    const value = JSON.parse(text);
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  } catch {
+    return {};
+  }
 }
