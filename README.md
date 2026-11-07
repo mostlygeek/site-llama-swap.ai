@@ -36,6 +36,54 @@ Flags:
 | `-model` | `llama-swap/LFM3-1.7B-HelpAgent` | Hugging Face repository the browser loads the model from. |
 | `-model-revision` | a pinned commit | Repository commit or branch. Pinned so a new upload does not change the site without a deploy. |
 | `-transformers-url` | Transformers.js 4.3.2 on jsdelivr | The Transformers.js build the browser imports. The model card only tests 4.3.2. |
+| `-tls-cert-file`, `-tls-key-file` | none | Serve HTTPS with this certificate and key. Set both or neither. |
+
+## HTTPS for development
+
+Browsers only turn on WebGPU for pages served over HTTPS or from
+`http://localhost`. If you open the site on another machine by name, such as
+`http://devbox:8181`, the help agent reports that WebGPU needs HTTPS. Either
+open it through an SSH tunnel (`ssh -L 8181:localhost:8181 devbox`, then
+`http://localhost:8181`), or serve it over HTTPS with a development
+certificate as below.
+
+[mkcert](https://github.com/FiloSottile/mkcert) makes a certificate signed by
+your own local certificate authority (CA), which your browser can trust
+without warnings.
+
+1. On the machine that runs the site, install mkcert and make a certificate
+   for every name you will open the site with. `certs/` is gitignored.
+
+   ```shell
+   go install filippo.io/mkcert@v1.4.4   # or: brew install mkcert
+   mkdir -p certs
+   mkcert -cert-file certs/dev-cert.pem -key-file certs/dev-key.pem devbox localhost 127.0.0.1
+   ```
+
+2. Start the site with the certificate:
+
+   ```shell
+   make
+   ./build/site-llama-swap -listen :8443 -tls-cert-file certs/dev-cert.pem -tls-key-file certs/dev-key.pem
+   ```
+
+3. Trust the CA on the computer that runs the browser. If that is the same
+   machine, run `mkcert -install`. If it is another computer, copy only
+   `rootCA.pem` from the directory `mkcert -CAROOT` prints, then on that
+   computer run:
+
+   ```shell
+   CAROOT=/path/to/folder/with/rootCA.pem mkcert -install
+   ```
+
+   Never copy `rootCA-key.pem`: anyone with it can make certificates your
+   browser trusts for any site.
+
+4. Restart the browser and open `https://devbox:8443/help`.
+
+If the browser still warns about the certificate, check that the name in the
+address bar is one you passed to `mkcert` in step 1. Make a new certificate
+to add a name.
 
 ## How the help agent works
 
