@@ -138,6 +138,46 @@ docs and the code therefore always come from the same commit.
 do not need it, but it keeps `go build`, `go test` and editors close to what
 `make` builds.
 
+## Deploying to Fly.io
+
+The site runs on [Fly.io](https://fly.io) from the `Dockerfile` and
+`fly.toml` in this repository. The image is about 30 MB: the Go binary on a
+distroless base. It builds with `make build`, so each deploy carries
+llama-swap's latest `main`.
+
+`.github/workflows/deploy.yml` runs `make test` on every pull request and
+push. When `main` changes and the tests pass, it deploys with `flyctl deploy`.
+To pick up new llama-swap docs without a change here, run the workflow by hand
+from the Actions tab.
+
+One-time setup:
+
+1. Create the app. Change `app` and `primary_region` in `fly.toml` if you
+   want others.
+
+   ```shell
+   fly apps create llama-swap-ai
+   ```
+
+2. Make a deploy token and save it in the GitHub repository as the Actions
+   secret `FLY_API_TOKEN` (Settings → Secrets and variables → Actions).
+
+   ```shell
+   fly tokens create deploy -a llama-swap-ai
+   ```
+
+3. Point the domain at the app and follow the DNS instructions it prints.
+
+   ```shell
+   fly certs add llama-swap.ai -a llama-swap-ai
+   ```
+
+To deploy from your own machine instead: `fly deploy --build-arg VERSION=$(git rev-parse --short HEAD)`.
+
+Fly.io serves the site over HTTPS, which the help agent needs for WebGPU.
+Machines stop when idle and start on the next request; the site starts in
+well under a second.
+
 ## Development
 
 - `make run` builds and starts the site on `localhost:8080`.
