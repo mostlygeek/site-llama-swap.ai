@@ -178,6 +178,18 @@ function disableAgent() {
 }
 
 async function checkWebGPU() {
+  // Browsers only offer WebGPU to secure pages: HTTPS, or http://localhost.
+  // On plain HTTP to any other host navigator.gpu is missing even in a
+  // browser that supports it, so say that instead of blaming the browser.
+  if (!window.isSecureContext) {
+    showGpuError(
+      `WebGPU only works over HTTPS or on http://localhost, so it is turned off for ${location.origin}. ` +
+        "Open this page over HTTPS, or through localhost (for example with an SSH tunnel).",
+    );
+    disableAgent();
+    setStatus("error", "WebGPU needs HTTPS");
+    return;
+  }
   if (!navigator.gpu) {
     showGpuError(
       "This browser does not support WebGPU, which the help agent needs. Try a recent version of Chrome or Edge on a computer with a GPU.",
