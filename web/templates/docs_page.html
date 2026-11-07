@@ -1,0 +1,25 @@
+{{define "main"}}
+<div class="wrap docs-layout">
+  {{template "docs-nav" .}}
+  <article class="docs-article">
+    <p class="docs-crumb"><a href="/docs">Docs</a> / {{.Doc.Group}}</p>
+    <h1>{{.Doc.Title}}</h1>
+    {{if .Doc.Summary}}<p class="docs-summary">{{.Doc.Summary}}</p>{{end}}
+    <div class="doc-body">{{.Doc.HTML}}</div>
+    <footer class="docs-footer">
+      <a href="{{.Doc.SourceURL}}" target="_blank" rel="noopener">View the source on GitHub</a>
+      <a href="/help">Ask the help agent</a>
+    </footer>
+  </article>
+  <nav class="docs-toc" aria-label="On this page">
+    {{if .Doc.TOC}}
+    <h2>On this page</h2>
+    <ul>
+      {{range .Doc.TOC}}<li class="toc-{{.Level}}"><a href="#{{.ID}}">{{.Text}}</a></li>{{end}}
+    </ul>
+    {{end}}
+  </nav>
+</div>
+{{end}}
+
+{{define "scripts"}}<script type="module" src="{{asset "js/docs.js"}}"></script>{{end}}

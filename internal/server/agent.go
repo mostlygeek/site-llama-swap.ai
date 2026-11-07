@@ -24,6 +24,10 @@ type AgentConfig struct {
 	MaxIterations int `json:"maxIterations"`
 
 	Suggestions []string `json:"suggestions"`
+
+	// DocLinks maps the document ids the agent names in its answers to their
+	// pages on the site, so the Help page can link them.
+	DocLinks map[string]string `json:"docLinks"`
 }
 
 // Defaults for the model. The model card tests Transformers.js 4.3.2 only.

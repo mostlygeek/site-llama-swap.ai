@@ -4,6 +4,7 @@
 import { listTools, callTool } from "./mcp.js";
 import { partialView, runAgent, toolDefinitions } from "./agent.js";
 import { addCopyButtons, renderMarkdown } from "./markdown.js";
+import { linkDocs } from "./doclinks.js";
 
 const config = JSON.parse(document.getElementById("agent-config").textContent);
 
@@ -452,6 +453,7 @@ function createAgentCard({ onRegenerate }) {
     const text = [...contents, live].filter((s) => s.trim()).join("\n\n");
     answer.innerHTML = renderMarkdown(text);
     addCopyButtons(answer);
+    linkDocs(answer, config.docLinks);
   }
 
   function queueRender() {

@@ -1,0 +1,28 @@
+{{define "main"}}
+<div class="wrap docs-layout">
+  {{template "docs-nav" .}}
+  <article class="docs-article">
+    <p class="docs-crumb"><a href="/docs">Docs</a> / Reference</p>
+    <h1>{{.Doc.Title}}</h1>
+    <p class="docs-summary">Every option llama-swap's config file accepts, from the annotated <a href="{{.Doc.SourceURL}}" target="_blank" rel="noopener">config.example.yaml</a>. Each section is the file's own text, comments included.</p>
+    <div class="doc-body">
+      {{.Docs.ConfigIntro}}
+      {{range .Docs.Config}}
+      <section class="config-section" id="{{.Key}}">
+        <h2><a class="anchor" href="#{{.Key}}">{{.Key}}</a></h2>
+        {{if .Summary}}<p>{{.Summary}}</p>{{end}}
+        {{.HTML}}
+      </section>
+      {{end}}
+    </div>
+  </article>
+  <nav class="docs-toc" aria-label="On this page">
+    <h2>Sections</h2>
+    <ul>
+      {{range .Docs.Config}}<li class="toc-2"><a href="#{{.Key}}"><code>{{.Key}}</code></a></li>{{end}}
+    </ul>
+  </nav>
+</div>
+{{end}}
+
+{{define "scripts"}}<script type="module" src="{{asset "js/docs.js"}}"></script>{{end}}

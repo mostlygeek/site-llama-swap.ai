@@ -1,0 +1,21 @@
+{{define "main"}}
+<div class="wrap docs-layout docs-layout-search">
+  {{template "docs-nav" .}}
+  <article class="docs-article">
+    <p class="docs-crumb"><a href="/docs">Docs</a> / Search</p>
+    <h1>{{if .Query}}Results for “{{.Query}}”{{else}}Search the docs{{end}}</h1>
+    {{template "docs-search" .}}
+    {{if .SearchMessage}}<p class="muted">{{.SearchMessage}}</p>{{end}}
+    <ol class="search-results">
+      {{range .Results}}
+      <li>
+        <a class="search-title" href="{{.URL}}">{{.Title}}</a>
+        <span class="search-id">{{.ID}}</span>
+        <pre class="search-snippet">{{.Snippet}}</pre>
+      </li>
+      {{end}}
+    </ol>
+    {{if .Query}}<p class="muted">Not finding it? <a href="/help">Ask the help agent</a>.</p>{{end}}
+  </article>
+</div>
+{{end}}

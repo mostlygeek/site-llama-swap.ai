@@ -17,7 +17,9 @@ import (
 	"time"
 
 	"github.com/mostlygeek/llama-swap/docbot"
+	"github.com/mostlygeek/llama-swap/docs"
 
+	"github.com/mostlygeek/site-llama-swap.ai/internal/docsite"
 	"github.com/mostlygeek/site-llama-swap.ai/internal/llamasrc"
 	"github.com/mostlygeek/site-llama-swap.ai/web"
 )
@@ -37,9 +39,13 @@ type Options struct {
 
 // Server serves the whole site. It holds no per-request state.
 type Server struct {
-	mux *http.ServeMux
-	bot *docbot.Handler
-	log *slog.Logger
+	mux  *http.ServeMux
+	bot  *docbot.Handler
+	docs *docsite.Site
+	log  *slog.Logger
+
+	// highlightVersion versions the code colours stylesheet's URL.
+	highlightVersion string
 
 	pages map[string]*template.Template
 	agent AgentConfig
@@ -83,11 +89,18 @@ func New(opts Options) (*Server, error) {
 		return nil, err
 	}
 
-	s := &Server{
-		mux: http.NewServeMux(),
-		bot: bot,
-		log: log,
+	site, err := docsite.Load(docs.Files)
+	if err != nil {
+		return nil, fmt.Errorf("rendering the llama-swap docs: %w", err)
 	}
+
+	s := &Server{
+		mux:  http.NewServeMux(),
+		bot:  bot,
+		docs: site,
+		log:  log,
+	}
+	s.highlightVersion = fmt.Sprintf("%x", sha256.Sum256([]byte(site.HighlightCSS)))[:12]
 
 	s.agent = AgentConfig{
 		SystemPrompt:    bot.SystemPrompt(),
@@ -97,6 +110,7 @@ func New(opts Options) (*Server, error) {
 		MaxNewTokens:    2048,
 		MaxIterations:   12,
 		Suggestions:     suggestions,
+		DocLinks:        site.Links(),
 	}
 
 	if s.assetVersion, err = hashFS(web.Static); err != nil {
@@ -114,6 +128,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /{$}", s.page("home"))
 	s.mux.HandleFunc("GET /help", s.page("help"))
 	s.mux.Handle("/api/mcp", s.bot)
+	s.docsRoutes()
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Write([]byte("ok\n"))
@@ -168,8 +183,18 @@ func (s *Server) cacheStatic(next http.Handler) http.Handler {
 type pageData struct {
 	Page  string
 	Title string
+	// Description overrides the default meta description.
+	Description string
 	// AgentJSON is the Help page's configuration, already JSON encoded.
 	AgentJSON template.JS
+
+	// The docs pages.
+	Docs          *docsite.Site
+	Doc           *docsite.Page
+	HighlightCSS  string
+	Query         string
+	Results       []SearchResult
+	SearchMessage string
 }
 
 func (s *Server) parseTemplates() error {
@@ -178,12 +203,16 @@ func (s *Server) parseTemplates() error {
 		"asset": func(name string) string {
 			return "/static/" + strings.TrimPrefix(name, "/") + "?v=" + s.assetVersion
 		},
+		"hasPrefix": strings.HasPrefix,
 	}
 
 	s.pages = map[string]*template.Template{}
-	for _, name := range []string{"home", "help", "404"} {
-		t, err := template.New("base.html").Funcs(funcs).ParseFS(web.Templates,
-			"templates/base.html", "templates/"+name+".html")
+	for _, name := range []string{"home", "help", "404", "docs_index", "docs_page", "docs_config", "docs_search"} {
+		files := []string{"templates/base.html", "templates/" + name + ".html"}
+		if strings.HasPrefix(name, "docs_") {
+			files = append(files, "templates/docs_nav.html")
+		}
+		t, err := template.New("base.html").Funcs(funcs).ParseFS(web.Templates, files...)
 		if err != nil {
 			return fmt.Errorf("parsing template %s: %w", name, err)
 		}
@@ -192,8 +221,8 @@ func (s *Server) parseTemplates() error {
 	return nil
 }
 
-func (s *Server) render(w http.ResponseWriter, status int, name string) {
-	data := pageData{Page: name}
+func (s *Server) render(w http.ResponseWriter, status int, name string, data pageData) {
+	data.Page = name
 	switch name {
 	case "home":
 		data.Title = "llama-swap: hot-swap local AI models"
@@ -225,12 +254,12 @@ func (s *Server) render(w http.ResponseWriter, status int, name string) {
 
 func (s *Server) page(name string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		s.render(w, http.StatusOK, name)
+		s.render(w, http.StatusOK, name, pageData{})
 	}
 }
 
 func (s *Server) notFound(w http.ResponseWriter, r *http.Request) {
-	s.render(w, http.StatusNotFound, "404")
+	s.render(w, http.StatusNotFound, "404", pageData{})
 }
 
 // hashFS returns a short hash of every file in fsys.

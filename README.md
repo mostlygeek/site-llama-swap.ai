@@ -6,6 +6,7 @@ The website for [llama-swap.ai](https://llama-swap.ai). It is one Go binary that
 |---|---|
 | `/` | The landing page. |
 | `/help` | The help agent. It runs [llama-swap/LFM3-1.7B-HelpAgent](https://huggingface.co/llama-swap/LFM3-1.7B-HelpAgent) in the browser with WebGPU. |
+| `/docs` | llama-swap's documentation as HTML: the knowledge base, a configuration reference from `config.example.yaml`, and search. |
 | `/api/mcp` | The documentation and source code tools the help agent calls, served by llama-swap's `docbot` package: the same MCP protocol and tools as llama-swap's own `/api/mcp`, minus the ones that need a running llama-swap. |
 | `/healthz` | Returns `ok`. |
 
@@ -101,6 +102,27 @@ worker.js Transformers.js + WebGPU
 - `worker.js` picks `q4f16` when the GPU has `shader-f16`, and `q4` otherwise. It prefills the prompt in 256 token chunks, as the model card requires.
 - `agent.js` parses the model's raw `<think>` and `<tool_call>` output, which llama-server would parse on llama-swap's own Help page. It has no DOM or network code, so `make test-js` tests it under Node.
 - The system prompt is llama-swap's Docs Agent prompt, which the model was fine-tuned on. `docbot` removes the lines for `config__get_config` and `sys__now`, since there is no running llama-swap here.
+
+## How the docs pages work
+
+`internal/docsite` renders llama-swap's documentation once, when the site
+starts, from the `docs` package of the llama-swap version the site is built
+with:
+
+- Each knowledge base article in `docs/kb/` becomes `/docs/<id>`, using the
+  same ids as the Help agent's tools (`/docs/guides/model-runtime/ttl-and-unloading`).
+  Its front matter gives the title, summary and navigation group.
+- [goldmark](https://github.com/yuin/goldmark) turns the Markdown into HTML,
+  with GitHub-style tables, heading anchors, and code coloured by
+  [Chroma](https://github.com/alecthomas/chroma) for light and dark themes.
+  Raw HTML in the Markdown is escaped.
+- Links between documents are rewritten to the site's pages. Links to other
+  files in the llama-swap repository go to GitHub.
+- `/docs/reference/config` shows `config.example.yaml` split at its top-level
+  keys, each with an anchor (`#models`).
+- `/docs/search` runs the Help agent's own `docs__search_docs` tool, so the two
+  find the same things.
+- Document ids in the Help agent's answers link to these pages.
 
 ## Where llama-swap's docs and code come from
 

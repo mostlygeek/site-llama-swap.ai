@@ -1,0 +1,22 @@
+{{define "main"}}
+<div class="wrap docs-home">
+  <header class="docs-hero">
+    <h1>Documentation</h1>
+    <p class="lede-left">Guides for running llama-swap, and the full configuration reference. Prefer to ask? The <a href="/help">help agent</a> answers from these same pages.</p>
+    {{template "docs-search" .}}
+  </header>
+  {{range .Docs.Nav}}
+  <section class="docs-group">
+    <h2>{{.Name}}</h2>
+    <div class="docs-cards">
+      {{range .Pages}}
+      <a class="docs-card" href="{{.URL}}">
+        <span class="docs-card-title">{{.Title}}</span>
+        <span class="docs-card-summary">{{.Summary}}</span>
+      </a>
+      {{end}}
+    </div>
+  </section>
+  {{end}}
+</div>
+{{end}}
