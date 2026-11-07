@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"syscall"
 	"time"
 
@@ -28,7 +29,7 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Println(version)
+		fmt.Printf("%s (llama-swap %s)\n", version, llamaSwapVersion())
 		return
 	}
 
@@ -56,7 +57,7 @@ func main() {
 	defer stop()
 
 	go func() {
-		slog.Info("listening", "addr", *listen, "version", version)
+		slog.Info("listening", "addr", *listen, "version", version, "llama-swap", llamaSwapVersion())
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("server stopped", "error", err)
 			os.Exit(1)
@@ -70,4 +71,20 @@ func main() {
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		slog.Error("shutdown", "error", err)
 	}
+}
+
+// llamaSwapVersion is the llama-swap module version the binary was built with.
+// `make` builds against llama-swap's latest main, so this changes between
+// builds.
+func llamaSwapVersion() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "unknown"
+	}
+	for _, dep := range info.Deps {
+		if dep.Path == "github.com/mostlygeek/llama-swap" {
+			return dep.Version
+		}
+	}
+	return "unknown"
 }
