@@ -18,14 +18,16 @@
   {{range .Docs.Nav}}
   <section class="docs-group">
     <h2>{{.Name}}</h2>
-    <div class="docs-cards">
+    <ul class="docs-list">
       {{range .Pages}}
-      <a class="docs-card" href="{{.URL}}">
-        <span class="docs-card-title">{{.Title}}</span>
-        <span class="docs-card-summary">{{.Summary}}</span>
-      </a>
+      <li>
+        <a class="docs-topic" href="{{.URL}}">
+          <span class="docs-topic-title">{{.Title}}</span>
+          <span class="docs-topic-summary">{{.Summary}}</span>
+        </a>
+      </li>
       {{end}}
-    </div>
+    </ul>
   </section>
   {{end}}
 </div>

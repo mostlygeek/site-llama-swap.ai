@@ -7,6 +7,7 @@ The website for [llama-swap.ai](https://llama-swap.ai). It is one Go binary that
 | `/` | The landing page. |
 | `/docs/chat` | Chat with the docs (the help agent; `/help` redirects here). It runs the Q4_K_M GGUF of [llama-swap/LFM3-1.7B-HelpAgent](https://huggingface.co/llama-swap/LFM3-1.7B-HelpAgent) in the browser with [wllama](https://github.com/ngxson/wllama) and WebGPU. |
 | `/docs` | llama-swap's documentation as HTML: the knowledge base, a configuration reference from `config.example.yaml`, and search. |
+| `/changelog` | llama-swap's release notes as HTML, from the `changelog` package: the index lists every release, newest first, and `/changelog/<version>` shows one release. |
 | `/api/mcp` | The documentation and source code tools the help agent calls, served by llama-swap's `docbot` package: the same MCP protocol and tools as llama-swap's own `/api/mcp`, minus the ones that need a running llama-swap. |
 | `/health` | Returns `ok`. |
 
@@ -125,6 +126,15 @@ with:
 - `/docs/search` runs the Help agent's own `docs__search_docs` tool, so the two
   find the same things.
 - Document ids in the Help agent's answers link to these pages.
+
+## How the changelog page works
+
+`internal/changelogsite` renders llama-swap's release notes once, when the
+site starts, from the `changelog` package of the llama-swap version the site
+is built with, with the same goldmark rendering as the docs pages. `/changelog`
+lists every release, newest first; `/changelog/<version>` shows one release
+note, in the docs page layout, and accepts the version with or without the
+leading `v`.
 
 ## Where llama-swap's docs and code come from
 

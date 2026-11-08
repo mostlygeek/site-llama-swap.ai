@@ -93,10 +93,11 @@ func (s *Server) docsSearch(w http.ResponseWriter, r *http.Request) {
 		data.Title = q + " · Search the docs · llama-swap"
 		results, err := s.searchDocs(r, q)
 		if err != nil {
-			s.log.Error("docs search", "query", q, "error", err)
+			s.log.Error("doc_search", "query", q, "error", err)
 			data.SearchMessage = "Search is not working right now."
 		} else {
 			data.Results = results
+			s.log.Info("doc_search", "query", q, "results", len(results))
 			if len(results) == 0 {
 				data.SearchMessage = "Nothing matched. Try fewer or different words."
 			}

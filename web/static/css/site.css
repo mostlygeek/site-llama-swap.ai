@@ -1088,36 +1088,42 @@ pre.item-body {
   margin: 0 0 12px;
 }
 
-.docs-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 12px;
-}
-
-.docs-card {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 14px 16px;
+.docs-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: var(--surface);
+  overflow: hidden;
+}
+
+.docs-list li + li {
+  border-top: 1px solid var(--border);
+}
+
+.docs-topic {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  align-items: baseline;
+  padding: 12px 16px;
   text-decoration: none;
-  transition: border-color 0.15s;
+  color: var(--fg);
+  transition: background 0.15s;
 }
 
-.docs-card:hover {
-  border-color: var(--accent);
+.docs-topic:hover {
+  background: var(--surface);
 }
 
-.docs-card-title {
+.docs-topic-title {
   font-weight: 600;
   line-height: 1.35;
 }
 
-.docs-card-summary {
+.docs-topic-summary {
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: 0.9rem;
   line-height: 1.45;
 }
 
@@ -1451,4 +1457,60 @@ pre.item-body {
 
 .intro .docs-crumb {
   margin: 24px 0 -16px;
+}
+
+/* Changelog */
+
+.release-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.release-list li + li {
+  border-top: 1px solid var(--border);
+}
+
+.release {
+  display: grid;
+  grid-template-columns: 72px 120px minmax(0, 1fr);
+  gap: 16px;
+  align-items: baseline;
+  padding: 12px 16px;
+  text-decoration: none;
+  color: var(--fg);
+  transition: background 0.15s;
+}
+
+.release:hover {
+  background: var(--surface);
+}
+
+.release-version {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.release-date {
+  color: var(--muted);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.release-summary {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 760px) {
+  .release {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+  .release-date {
+    display: none;
+  }
 }

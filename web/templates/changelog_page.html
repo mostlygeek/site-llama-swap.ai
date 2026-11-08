@@ -1,0 +1,24 @@
+{{define "main"}}
+<div class="wrap docs-layout">
+  {{template "changelog-nav" .}}
+  <article class="docs-article">
+    <p class="docs-crumb"><a href="/changelog">Changelog</a> / {{.Release.Version}}</p>
+    <h1>{{.Release.Title}}</h1>
+    <div class="doc-body">{{.Release.HTML}}</div>
+    <footer class="docs-footer">
+      <a href="{{.Release.SourceURL}}" target="_blank" rel="noopener">View the source on GitHub</a>
+      <a href="/docs/chat">Chat with the docs</a>
+    </footer>
+  </article>
+  <nav class="docs-toc" aria-label="On this page">
+    {{if .Release.TOC}}
+    <h2>On this page</h2>
+    <ul>
+      {{range .Release.TOC}}<li class="toc-{{.Level}}"><a href="#{{.ID}}">{{.Text}}</a></li>{{end}}
+    </ul>
+    {{end}}
+  </nav>
+</div>
+{{end}}
+
+{{define "scripts"}}<script type="module" src="{{asset "js/docs.js"}}"></script>{{end}}

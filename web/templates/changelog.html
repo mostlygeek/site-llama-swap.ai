@@ -1,0 +1,19 @@
+{{define "main"}}
+<div class="wrap docs-home">
+  <header class="docs-hero">
+    <h1>Changelog</h1>
+    <p class="lede-left">Release notes for every version of llama-swap, newest first.</p>
+  </header>
+  <ol class="release-list">
+    {{range .Changelog.Releases}}
+    <li>
+      <a class="release" href="{{.URL}}">
+        <span class="release-version">{{.Version}}</span>
+        <span class="release-date">{{.Date}}</span>
+        <span class="release-summary">{{.Summary}}</span>
+      </a>
+    </li>
+    {{end}}
+  </ol>
+</div>
+{{end}}

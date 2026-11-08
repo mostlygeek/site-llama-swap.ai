@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -19,6 +20,7 @@ import (
 	"github.com/mostlygeek/llama-swap/docbot"
 	"github.com/mostlygeek/llama-swap/docs"
 
+	"github.com/mostlygeek/site-llama-swap.ai/internal/changelogsite"
 	"github.com/mostlygeek/site-llama-swap.ai/internal/docsite"
 	"github.com/mostlygeek/site-llama-swap.ai/internal/llamasrc"
 	"github.com/mostlygeek/site-llama-swap.ai/web"
@@ -33,7 +35,7 @@ type Options struct {
 	ModelRevision string
 	ModelFile     string
 
-	// Logger receives the access log. Nil uses slog.Default().
+	// Logger receives the site log. Nil uses slog.Default().
 	Logger *slog.Logger
 }
 
@@ -42,7 +44,9 @@ type Server struct {
 	mux  *http.ServeMux
 	bot  *docbot.Handler
 	docs *docsite.Site
-	log  *slog.Logger
+	// changelog renders llama-swap's release notes.
+	changelog *changelogsite.Site
+	log       *slog.Logger
 
 	// highlightVersion versions the code colours stylesheet's URL.
 	highlightVersion string
@@ -94,11 +98,17 @@ func New(opts Options) (*Server, error) {
 		return nil, fmt.Errorf("rendering the llama-swap docs: %w", err)
 	}
 
+	cl, err := changelogsite.Load()
+	if err != nil {
+		return nil, fmt.Errorf("rendering the llama-swap changelog: %w", err)
+	}
+
 	s := &Server{
-		mux:  http.NewServeMux(),
-		bot:  bot,
-		docs: site,
-		log:  log,
+		mux:       http.NewServeMux(),
+		bot:       bot,
+		docs:      site,
+		changelog: cl,
+		log:       log,
 	}
 	s.highlightVersion = fmt.Sprintf("%x", sha256.Sum256([]byte(site.HighlightCSS)))[:12]
 
@@ -133,6 +143,7 @@ func (s *Server) routes() {
 	})
 	s.mux.Handle("/api/mcp", s.bot)
 	s.docsRoutes()
+	s.changelogRoutes()
 	s.mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Write([]byte("ok\n"))
@@ -145,9 +156,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/", s.notFound)
 }
 
-// ServeHTTP adds the headers every response carries and logs the request.
+// ServeHTTP adds the headers every response carries. Every request to the
+// /api/mcp endpoint is logged (see mcpInspect); other requests are silent.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	start := time.Now()
 	h := w.Header()
 	h.Set("X-Content-Type-Options", "nosniff")
 	h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
@@ -158,11 +169,55 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.Set("Cross-Origin-Opener-Policy", "same-origin")
 	h.Set("Cross-Origin-Embedder-Policy", "credentialless")
 
+	method, tool, query := mcpInspect(r)
+
+	start := time.Now()
 	rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 	s.mux.ServeHTTP(rec, r)
 
-	s.log.Info("request", "method", r.Method, "path", r.URL.Path, "status", rec.status,
-		"duration", time.Since(start).Round(time.Microsecond))
+	if r.URL.Path == "/api/mcp" {
+		args := []any{"http_method", r.Method}
+		if method != "" {
+			args = append(args, "method", method)
+			if tool != "" {
+				args = append(args, "tool", tool)
+			}
+			if query != "" {
+				args = append(args, "query", query)
+			}
+		}
+		args = append(args, "status", rec.status,
+			"duration", time.Since(start).Round(time.Microsecond))
+		s.log.Info("mcp", args...)
+	}
+}
+
+// mcpInspect inspects a request to the /api/mcp endpoint and returns its
+// JSON-RPC method, the tool name of a tools/call, and the query argument
+// when present. The body is buffered so the MCP handler can still read
+// it.
+func mcpInspect(r *http.Request) (string, string, string) {
+	if r.URL.Path != "/api/mcp" || r.Method != http.MethodPost {
+		return "", "", ""
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return "", "", ""
+	}
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	var req struct {
+		Method string `json:"method"`
+		Params struct {
+			Name      string `json:"name"`
+			Arguments struct {
+				Query string `json:"query"`
+			} `json:"arguments"`
+		} `json:"params"`
+	}
+	if err := json.Unmarshal(body, &req); err != nil {
+		return "", "", ""
+	}
+	return req.Method, req.Params.Name, req.Params.Arguments.Query
 }
 
 type statusRecorder struct {
@@ -204,6 +259,10 @@ type pageData struct {
 	Query         string
 	Results       []SearchResult
 	SearchMessage string
+
+	// The changelog pages.
+	Changelog *changelogsite.Site
+	Release   *changelogsite.Release
 }
 
 func (s *Server) parseTemplates() error {
@@ -216,10 +275,13 @@ func (s *Server) parseTemplates() error {
 	}
 
 	s.pages = map[string]*template.Template{}
-	for _, name := range []string{"home", "help", "404", "docs_index", "docs_page", "docs_config", "docs_search"} {
+	for _, name := range []string{"home", "help", "404", "docs_index", "docs_page", "docs_config", "docs_search", "changelog", "changelog_page"} {
 		files := []string{"templates/base.html", "templates/" + name + ".html"}
-		if strings.HasPrefix(name, "docs_") {
+		switch {
+		case strings.HasPrefix(name, "docs_"):
 			files = append(files, "templates/docs_nav.html")
+		case name == "changelog_page":
+			files = append(files, "templates/changelog_nav.html")
 		}
 		t, err := template.New("base.html").Funcs(funcs).ParseFS(web.Templates, files...)
 		if err != nil {

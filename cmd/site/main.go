@@ -21,6 +21,9 @@ import (
 var version = "dev"
 
 func main() {
+	// Log in JSON: the server's Logger nil falls through to slog.Default().
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, nil)))
+
 	listen := flag.String("listen", ":8080", "address to listen on")
 	model := flag.String("model", server.DefaultModel, "Hugging Face repository of the Help agent's GGUF model")
 	revision := flag.String("model-revision", server.DefaultModelRevision, "model repository commit or branch to load")

@@ -1,0 +1,21 @@
+{{define "changelog-nav-list"}}
+{{$current := ""}}{{if .Release}}{{$current = .Release.Version}}{{end}}
+<div class="nav-group">
+  <h2>Releases</h2>
+  <ul>
+    {{range .Changelog.Releases}}
+    <li><a href="{{.URL}}"{{if eq .Version $current}} aria-current="page"{{end}}>{{.Version}}</a></li>
+    {{end}}
+  </ul>
+</div>
+{{end}}
+
+{{define "changelog-nav"}}
+<aside class="docs-sidebar" aria-label="Changelog">
+  <nav class="docs-nav">{{template "changelog-nav-list" .}}</nav>
+</aside>
+<details class="docs-nav-mobile">
+  <summary>Browse releases</summary>
+  <nav class="docs-nav">{{template "changelog-nav-list" .}}</nav>
+</details>
+{{end}}

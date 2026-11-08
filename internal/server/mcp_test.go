@@ -1,7 +1,9 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -109,5 +111,60 @@ func TestMCP_RejectsGET(t *testing.T) {
 	s.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/mcp", nil))
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Errorf("GET /api/mcp = %d", w.Code)
+	}
+}
+
+// Every /api/mcp call is logged; page views are silent.
+func TestMCP_Logging(t *testing.T) {
+	var buf bytes.Buffer
+	s, err := New(Options{Version: "test", Logger: slog.New(slog.NewJSONHandler(&buf, nil))})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	// Page views are not logged.
+	get(t, s, "/")
+	get(t, s, "/docs")
+	get(t, s, "/changelog")
+	if buf.Len() != 0 {
+		t.Fatalf("logged non-MCP traffic:\n%s", buf.String())
+	}
+
+	// A non-search MCP call is logged with its method.
+	mcpCall(t, s, "tools/list", nil, &struct{}{})
+	if log := buf.String(); strings.Count(log, "\n") != 1 ||
+		!strings.Contains(log, `"method":"tools/list"`) || strings.Contains(log, `"tool":`) {
+		t.Fatalf("tools/list line:\n%s", log)
+	}
+	buf.Reset()
+
+	// A search is logged with the tool name and query.
+	mcpCall(t, s, "tools/call", map[string]any{"name": "docs__search_docs", "arguments": map[string]any{"query": "ttl unload"}}, &toolResult{})
+	log := buf.String()
+	if lines := strings.Count(log, "\n"); lines != 1 {
+		t.Fatalf("logged %d lines, want 1:\n%s", lines, log)
+	}
+	for _, want := range []string{`"msg":"mcp"`, `"method":"tools/call"`, `"tool":"docs__search_docs"`, `"query":"ttl unload"`} {
+		if !strings.Contains(log, want) {
+			t.Errorf("search line missing %s:\n%s", want, log)
+		}
+	}
+	buf.Reset()
+
+	// The in-page search runs the same tool and is logged as doc_search.
+	get(t, s, "/docs/search?q=ttl+unload")
+	log = buf.String()
+	if lines := strings.Count(log, "\n"); lines != 1 {
+		t.Fatalf("logged %d lines, want 1:\n%s", lines, log)
+	}
+	if !strings.Contains(log, `"msg":"doc_search"`) || !strings.Contains(log, `"query":"ttl unload"`) {
+		t.Errorf("page search line:\n%s", log)
+	}
+	buf.Reset()
+
+	// An empty search queries nothing and logs nothing.
+	get(t, s, "/docs/search")
+	if buf.Len() != 0 {
+		t.Fatalf("empty search logged:\n%s", buf.String())
 	}
 }
