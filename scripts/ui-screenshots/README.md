@@ -29,7 +29,8 @@ no GPU or model files are needed.
    python3 webp.py      # writes web/static/img/features/*.webp
    ```
 
-`shoot.js` sends one more chat from the Playground, so the Playground
+`shoot.js` uses the UI's dark mode with the Sunset theme. It also sends one
+more chat from the Playground, so the Playground
 screenshot shows a reply. The Performance, Hardware and Help pages are left
 out: on a machine without a GPU the first two show no GPU data, and Help
 needs a model that can call tools.

@@ -28,8 +28,7 @@ screenshots:
     caption: Live output from llama-swap and from each model's server.
 ---
 
-llama-swap serves a web UI at `http://localhost:8080/ui`. Nothing to install
-or configure. The sidebar has these pages:
+The web UI is at `/ui`. Nothing to install or configure. The sidebar has these pages:
 
 - **Activity**: recent requests and their token metrics.
 - **Playground**: chat and other tests against any model.

@@ -7,7 +7,12 @@ fs.mkdirSync('out', { recursive: true });
 const U = 'http://localhost:8080/ui/#';
 (async () => {
   const b = await chromium.launch();
-  const ctx = await b.newContext({ viewport: { width: 1440, height: 860 }, deviceScaleFactor: 2, colorScheme: 'light' });
+  const ctx = await b.newContext({ viewport: { width: 1440, height: 860 }, deviceScaleFactor: 2, colorScheme: 'dark' });
+  // The UI keeps its theme in localStorage: dark mode, Sunset colours.
+  await ctx.addInitScript(() => {
+    localStorage.setItem('theme-mode', JSON.stringify('dark'));
+    localStorage.setItem('theme-name', JSON.stringify('sunset'));
+  });
   const p = await ctx.newPage();
 
   // Playground: a real chat against a fake model.
