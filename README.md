@@ -153,10 +153,11 @@ keeping the URL and browser history in step. "Ask the llama" links to
 `/docs/chat?q=<question>`; the chat page fills its question box from `q`
 without sending it.
 
-The web UI slide's screenshots are the ones in llama-swap's README, loaded
-from GitHub. To serve local copies instead, put the images in
-`web/static/img/` and change each screenshot's `src` in
-`web/features/04-web-ui.md`.
+The web UI slide's screenshots are in `web/static/img/features/`. They are
+taken from a real llama-swap whose models are fake-model test servers;
+`scripts/ui-screenshots/` has the config, the request traffic and the
+Playwright script that make them, and its README explains how to take them
+again when the UI changes.
 
 ## Where llama-swap's docs and code come from
 

@@ -39,7 +39,8 @@
       </div>
       {{range $i, $shot := .Screenshots}}
       <figure class="shot" data-shot="{{$i}}">
-        <a href="{{$shot.Src}}" target="_blank" rel="noopener"><img src="{{$shot.Src}}" alt="{{$shot.Alt}}" width="1094" height="667" loading="lazy" referrerpolicy="no-referrer"></a>
+        {{$src := $shot.Src}}{{if not (hasPrefix $src "https://")}}{{$src = asset $src}}{{end}}
+        <a href="{{$src}}" target="_blank" rel="noopener"><img src="{{$src}}" alt="{{$shot.Alt}}" width="1640" height="979" loading="lazy"></a>
         <figcaption><strong>{{$shot.Title}}.</strong> {{$shot.Caption}}</figcaption>
       </figure>
       {{end}}

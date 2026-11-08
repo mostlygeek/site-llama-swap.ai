@@ -7,24 +7,24 @@ docs:
   - guides/operations/observability-storage-and-activity
 screenshots:
   - title: Playground
-    src: https://github.com/user-attachments/assets/a79b3cea-5ee1-45f1-8db9-5f5331690e64
-    alt: The Playground page, chatting with a local model.
-    caption: Try any model in the browser. Tabs cover chat, images, speech, transcription, realtime, rerank and a load test.
+    src: img/features/playground.webp
+    alt: The Playground page, with a chat sent to the qwen3-8b model and its reply, showing prompt and generation speeds.
+    caption: Try any model in the browser. Tabs cover chat, images, speech, transcription, realtime, rerank and a load test. The model in these screenshots is a test server that replies with placeholder text.
   - title: Activity
-    src: https://github.com/user-attachments/assets/145f4ece-af2f-4a45-a3c1-45ae5d3c7e7f
-    alt: The Activity page, a table of recent requests with token counts and speeds.
+    src: img/features/activity.webp
+    alt: The Activity page, with histograms of prompt and generation speed above a table of recent requests with token counts and speeds.
     caption: Every request with its prompt and generated tokens, cache hits, prefill and decode speed.
   - title: Request inspector
-    src: https://github.com/user-attachments/assets/947cda4f-9aa1-4fa5-a550-5c469968c1d9
-    alt: A captured request and response shown side by side.
-    caption: Open a request on the Activity page to see the exact request and response bodies.
+    src: img/features/inspect.webp
+    alt: The capture of one chat request, showing its headers and JSON body.
+    caption: Select View on an Activity row to see the exact request and response, headers included.
   - title: Models
-    src: https://github.com/user-attachments/assets/b6b850f3-c5b0-4c14-ba90-be2de25b51c7
-    alt: The Models page, listing each model with load and unload buttons.
-    caption: Every configured model and its state. Load or unload one by hand.
+    src: img/features/models.webp
+    alt: The Models page, listing five models with their aliases, two of them ready and three stopped.
+    caption: Every configured model, its aliases and its state. Load or unload one by hand.
   - title: Logs
-    src: https://github.com/user-attachments/assets/9bb0c362-862c-4e68-820c-4c977fc9de4e
-    alt: The Logs page, streaming llama-swap and model server output.
+    src: img/features/logs.webp
+    alt: The Logs page, with llama-swap's log beside the model servers' log showing models loading and shutting down.
     caption: Live output from llama-swap and from each model's server.
 ---
 

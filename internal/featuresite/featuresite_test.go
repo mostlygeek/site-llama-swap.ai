@@ -1,6 +1,7 @@
 package featuresite
 
 import (
+	"io/fs"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -45,6 +46,18 @@ func TestLoad_SiteSlides(t *testing.T) {
 	}
 	if _, ok := s.Slide("web-ui"); !ok {
 		t.Error("no web-ui slide")
+	}
+
+	// Screenshots without a full URL are files under web/static.
+	for _, slide := range s.Slides {
+		for _, shot := range slide.Screenshots {
+			if strings.HasPrefix(shot.Src, "https://") {
+				continue
+			}
+			if _, err := fs.Stat(web.Static, shot.Src); err != nil {
+				t.Errorf("%s: screenshot %s: %v", slide.Slug, shot.Src, err)
+			}
+		}
 	}
 }
 
