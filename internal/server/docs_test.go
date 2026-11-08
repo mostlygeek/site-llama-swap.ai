@@ -77,7 +77,7 @@ func TestDocs_ChatPageAndOldHelpLink(t *testing.T) {
 		t.Error("/docs/chat is not the chat page")
 	}
 	index := get(t, s, "/docs").Body.String()
-	if !strings.Contains(index, `class="chat-tile" href="/docs/chat"`) || !strings.Contains(index, "runs in your browser") {
+	if !strings.Contains(index, `class="chat-tile" href="/docs/chat"`) || !strings.Contains(index, "runs in your browser") || !strings.Contains(index, "Ask the llama") {
 		t.Error("the docs index has no chat tile")
 	}
 	if strings.Contains(get(t, s, "/").Body.String(), ">Help agent<") {
