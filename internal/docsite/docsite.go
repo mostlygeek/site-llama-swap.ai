@@ -421,7 +421,11 @@ func nodeText(n ast.Node, src []byte) string {
 }
 
 // highlightCSS returns the code colours for light pages, and for dark pages
-// under prefers-color-scheme.
+// under prefers-color-scheme. Each theme sits in its own media query so no
+// colour leaks from one to the other: the light theme colours punctuation,
+// such as YAML's ":", nearly black, and the dark theme leaves it to the
+// default text colour, so an unscoped light rule made it unreadable on a
+// dark page.
 func highlightCSS() (string, error) {
 	formatter := chromahtml.New(chromahtml.WithClasses(true))
 	var light, dark bytes.Buffer
@@ -432,6 +436,7 @@ func highlightCSS() (string, error) {
 		return "", err
 	}
 	// The site's stylesheet sets the code block background.
-	return light.String() + "\n@media (prefers-color-scheme: dark) {\n" + dark.String() + "}\n" +
+	return "@media not all and (prefers-color-scheme: dark) {\n" + light.String() + "}\n" +
+		"@media (prefers-color-scheme: dark) {\n" + dark.String() + "}\n" +
 		".chroma { background-color: transparent !important; }\n", nil
 }
