@@ -61,6 +61,12 @@ func TestServer_FeaturesPages(t *testing.T) {
 		t.Error("the topic menu does not select the current slide")
 	}
 
+	// Tabs: a tab button and a panel each.
+	body = get(t, s, "/features/several-models").Body.String()
+	if n := strings.Count(body, `<h2 class="tab-heading">`); n != 3 {
+		t.Errorf("several-models has %d tab panels, want 3", n)
+	}
+
 	if w := get(t, s, "/features/no-such-slide"); w.Code != http.StatusNotFound {
 		t.Errorf("unknown slide status = %d", w.Code)
 	}

@@ -41,11 +41,19 @@ type Slide struct {
 	// Docs are knowledge base ids of related docs pages.
 	Docs        []string
 	Screenshots []Screenshot
-	HTML        template.HTML
+	// Tabs are shown after the body, one panel at a time.
+	Tabs []Tab
+	HTML template.HTML
 	// Number counts from 1.
 	Number int
 	// Prev and Next are the neighbouring slides, nil at either end.
 	Prev, Next *Slide
+}
+
+// Tab is one panel of a slide's tabbed section.
+type Tab struct {
+	Title string
+	HTML  template.HTML
 }
 
 // Screenshot is an image on a slide.
@@ -75,6 +83,10 @@ type frontmatter struct {
 	Prompt      string       `yaml:"prompt"`
 	Docs        []string     `yaml:"docs"`
 	Screenshots []Screenshot `yaml:"screenshots"`
+	Tabs        []struct {
+		Title string `yaml:"title"`
+		Body  string `yaml:"body"`
+	} `yaml:"tabs"`
 }
 
 var fileName = regexp.MustCompile(`^(\d+)-([a-z0-9-]+)\.md$`)
@@ -161,6 +173,17 @@ func render(md goldmark.Markdown, slug string, raw []byte) (*Slide, error) {
 	if err := md.Convert(body, &buf); err != nil {
 		return nil, err
 	}
+	var tabs []Tab
+	for _, t := range fm.Tabs {
+		if t.Title == "" || strings.TrimSpace(t.Body) == "" {
+			return nil, fmt.Errorf("tab %q needs a title and a body", t.Title)
+		}
+		var tb bytes.Buffer
+		if err := md.Convert([]byte(t.Body), &tb); err != nil {
+			return nil, err
+		}
+		tabs = append(tabs, Tab{Title: t.Title, HTML: template.HTML(tb.String())})
+	}
 	return &Slide{
 		Slug:        slug,
 		Title:       fm.Title,
@@ -169,6 +192,7 @@ func render(md goldmark.Markdown, slug string, raw []byte) (*Slide, error) {
 		Prompt:      strings.TrimSpace(fm.Prompt),
 		Docs:        fm.Docs,
 		Screenshots: fm.Screenshots,
+		Tabs:        tabs,
 		HTML:        template.HTML(buf.String()),
 	}, nil
 }

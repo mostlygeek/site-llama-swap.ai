@@ -32,13 +32,27 @@
 
     <div class="doc-body slide-body">{{.HTML}}</div>
 
+    {{if .Tabs}}
+    <div class="tabset" data-tabs>
+      <div class="shot-tabs" role="tablist" aria-label="{{.Title}}">
+        {{range $i, $tab := .Tabs}}<button type="button" role="tab" class="shot-tab" aria-selected="{{if eq $i 0}}true{{else}}false{{end}}">{{$tab.Title}}</button>{{end}}
+      </div>
+      {{range .Tabs}}
+      <div class="tab-panel doc-body slide-body" role="tabpanel">
+        <h2 class="tab-heading">{{.Title}}</h2>
+        {{.HTML}}
+      </div>
+      {{end}}
+    </div>
+    {{end}}
+
     {{if .Screenshots}}
-    <div class="shots" data-shots>
+    <div class="shots" data-tabs>
       <div class="shot-tabs" role="tablist" aria-label="Screenshots">
-        {{range $i, $shot := .Screenshots}}<button type="button" role="tab" class="shot-tab" aria-selected="{{if eq $i 0}}true{{else}}false{{end}}" data-shot="{{$i}}">{{$shot.Title}}</button>{{end}}
+        {{range $i, $shot := .Screenshots}}<button type="button" role="tab" class="shot-tab" aria-selected="{{if eq $i 0}}true{{else}}false{{end}}">{{$shot.Title}}</button>{{end}}
       </div>
       {{range $i, $shot := .Screenshots}}
-      <figure class="shot" data-shot="{{$i}}">
+      <figure class="shot tab-panel" role="tabpanel">
         {{$src := $shot.Src}}{{if not (hasPrefix $src "https://")}}{{$src = asset $src}}{{end}}
         <a href="{{$src}}" target="_blank" rel="noopener"><img src="{{$src}}" alt="{{$shot.Alt}}" width="1640" height="979" loading="lazy"></a>
         <figcaption><strong>{{$shot.Title}}.</strong> {{$shot.Caption}}</figcaption>

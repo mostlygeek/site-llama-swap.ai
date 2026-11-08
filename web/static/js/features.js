@@ -73,14 +73,15 @@ window.addEventListener("popstate", () => {
 });
 history.replaceState({ slug: current.dataset.slug }, "");
 
-// Screenshot tabs: show one screenshot at a time.
-for (const shots of document.querySelectorAll("[data-shots]")) {
-  shots.classList.add("js");
-  const tabs = [...shots.querySelectorAll(".shot-tab")];
-  const figures = [...shots.querySelectorAll(".shot")];
+// Tabbed sections and screenshots: show one panel at a time. Without the
+// script every panel shows, each under its own heading.
+for (const set of document.querySelectorAll("[data-tabs]")) {
+  set.classList.add("js");
+  const tabs = [...set.querySelectorAll('[role="tab"]')];
+  const panels = [...set.querySelectorAll(".tab-panel")];
   const select = (i) => {
     tabs.forEach((t, j) => t.setAttribute("aria-selected", String(i === j)));
-    figures.forEach((f, j) => (f.hidden = i !== j));
+    panels.forEach((p, j) => (p.hidden = i !== j));
   };
   tabs.forEach((tab, i) => tab.addEventListener("click", () => select(i)));
   select(0);

@@ -2,6 +2,7 @@ package featuresite
 
 import (
 	"io/fs"
+	"regexp"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -34,7 +35,11 @@ func TestLoad_SiteSlides(t *testing.T) {
 			t.Errorf("%s: %s slide comes after a %s one", slide.Slug, slide.Level, Levels[last])
 		}
 		last = rank
-		if !strings.Contains(string(slide.HTML), "<pre") {
+		examples := string(slide.HTML)
+		for _, tab := range slide.Tabs {
+			examples += string(tab.HTML)
+		}
+		if !strings.Contains(examples, "<pre") {
 			t.Errorf("%s: no config or command example", slide.Slug)
 		}
 	}
@@ -46,6 +51,21 @@ func TestLoad_SiteSlides(t *testing.T) {
 	}
 	if _, ok := s.Slide("web-ui"); !ok {
 		t.Error("no web-ui slide")
+	}
+	routers, ok := s.Slide("several-models")
+	if !ok {
+		t.Fatal("no several-models slide")
+	}
+	var titles []string
+	for _, tab := range routers.Tabs {
+		titles = append(titles, tab.Title)
+		text := regexp.MustCompile(`<[^>]+>`).ReplaceAllString(string(tab.HTML), "")
+		if !strings.Contains(text, "use: "+tab.Title) {
+			t.Errorf("the %s tab has no example that uses it", tab.Title)
+		}
+	}
+	if strings.Join(titles, ",") != "group,matrix,capacity" {
+		t.Errorf("router tabs = %v", titles)
 	}
 
 	// Screenshots without a full URL are files under web/static.
@@ -68,6 +88,7 @@ func TestLoad_Errors(t *testing.T) {
 		"no prompt":      {"01-a.md": {Data: []byte("---\ntitle: T\nlevel: Basics\n---\nBody\n")}},
 		"bad level":      {"01-a.md": {Data: []byte("---\ntitle: T\nlevel: Expert\nprompt: Q?\n---\nBody\n")}},
 		"no frontmatter": {"01-a.md": {Data: []byte("Body\n")}},
+		"empty tab":      {"01-a.md": {Data: []byte("---\ntitle: T\nlevel: Basics\nprompt: Q?\ntabs:\n  - title: x\n---\nBody\n")}},
 		"duplicate":      {"01-a.md": {Data: []byte(good)}, "02-a.md": {Data: []byte(good)}},
 		"empty":          {},
 	}

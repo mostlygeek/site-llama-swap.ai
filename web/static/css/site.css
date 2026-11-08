@@ -1790,6 +1790,38 @@ pre.item-body {
   }
 }
 
-.shots:not(.js) .shot-tabs {
+[data-tabs]:not(.js) .shot-tabs {
   display: none;
+}
+
+.tabset {
+  margin: 4px 0 8px;
+}
+
+.tabset .tab-panel {
+  padding: 18px 20px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.tabset:not(.js) .tab-panel + .tab-panel {
+  margin-top: 12px;
+}
+
+.tab-panel .tab-heading {
+  font-family: var(--mono);
+  font-size: 1rem;
+  margin: 0 0 10px;
+}
+
+/* The tab names the panel once the script runs. */
+.tabset.js .tab-heading {
+  display: none;
+}
+
+/* Keep short code, such as a router name, on one line in slide tables. */
+.slide-body td code {
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
