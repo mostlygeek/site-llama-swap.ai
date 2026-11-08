@@ -102,4 +102,9 @@ func TestDocsite_LlamaSwapDocs(t *testing.T) {
 	if !strings.Contains(s.HighlightCSS, "prefers-color-scheme: dark") {
 		t.Error("highlight CSS has no dark theme")
 	}
+	// The light theme's colours must not apply on dark pages: it colours
+	// punctuation, such as YAML's ":", nearly black.
+	if !strings.HasPrefix(s.HighlightCSS, "@media not all and (prefers-color-scheme: dark) {") {
+		t.Error("the light theme is not scoped to light pages")
+	}
 }

@@ -1,0 +1,51 @@
+healthCheckTimeout: 30
+captureBuffer: 20
+performance:
+  every: 5s
+macros:
+  fake: ${env.FAKE_MODEL} -listen localhost:${PORT}
+
+models:
+  qwen3-8b:
+    name: "Qwen3 8B"
+    description: "Fast general chat model"
+    cmd: ${fake} -load 2s -tokens 220 -tps 95 -prompt-tokens 640 -cache-tokens 512 -prefill-tps 3200
+    aliases: [gpt-4o-mini]
+    ttl: 300
+  qwen3-coder-30b:
+    name: "Qwen3 Coder 30B"
+    description: "Coding model"
+    cmd: ${fake} -load 3s -tokens 480 -tps 62 -prompt-tokens 4100 -cache-tokens 3800 -prefill-tps 2400 -draft-tokens 300 -draft-accepted 210
+  gemma-3-12b:
+    name: "Gemma 3 12B"
+    cmd: ${fake} -load 2s -tokens 300 -tps 48 -prompt-tokens 900 -prefill-tps 1800
+  gpt-oss-120b:
+    name: "gpt-oss 120B"
+    description: "A thinking model from OpenAI"
+    cmd: ${fake} -load 4s -tokens 650 -tps 38 -prompt-tokens 2300 -cache-tokens 1200 -prefill-tps 900
+    filters:
+      setParamsByID:
+        "${MODEL_ID}:high":
+          chat_template_kwargs: { reasoning_effort: high }
+        "${MODEL_ID}:low":
+          chat_template_kwargs: { reasoning_effort: low }
+  bge-m3:
+    name: "BGE M3 embeddings"
+    cmd: ${fake} -load 1s -tokens 1 -tps 500
+  qwen3-0.6b-draft:
+    unlisted: true
+    cmd: ${fake}
+
+routing:
+  router:
+    use: group
+    settings:
+      groups:
+        chat:
+          swap: true
+          exclusive: false
+          members: [qwen3-8b, qwen3-coder-30b, gemma-3-12b, gpt-oss-120b]
+        helpers:
+          swap: false
+          exclusive: false
+          members: [bge-m3, qwen3-0.6b-draft]

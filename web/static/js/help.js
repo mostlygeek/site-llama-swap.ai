@@ -809,6 +809,18 @@ els.input.addEventListener("keydown", (event) => {
 els.stop.addEventListener("click", stop);
 els.newChat.addEventListener("click", newChat);
 
+// Links such as the Features tour's "Ask the llama" buttons open the chat
+// with a question in ?q=. It is filled in, not sent: the model may still
+// need to load, and the reader may want to change it first.
+const prefill = new URLSearchParams(location.search).get("q")?.trim();
+if (prefill) {
+  els.input.value = prefill.slice(0, 2000);
+  autoGrow();
+  els.input.focus();
+  els.input.setSelectionRange(els.input.value.length, els.input.value.length);
+  window.history.replaceState(null, "", location.pathname);
+}
+
 checkWebGPU().then(() => {
   if (gpuSupported && loadWasInterrupted()) {
     showGpuError(

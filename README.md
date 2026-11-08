@@ -6,6 +6,7 @@ The website for [llama-swap.ai](https://llama-swap.ai). It is one Go binary that
 |---|---|
 | `/` | The landing page. |
 | `/docs/chat` | Chat with the docs (the help agent; `/help` redirects here). It runs the Q4_K_M GGUF of [llama-swap/LFM3-1.7B-HelpAgent](https://huggingface.co/llama-swap/LFM3-1.7B-HelpAgent) in the browser with [wllama](https://github.com/ngxson/wllama) and WebGPU. |
+| `/features` | A tour of llama-swap's features, one slide each, from a first config to the advanced routing settings. `/features/<slug>` opens one slide. |
 | `/docs` | llama-swap's documentation as HTML: the knowledge base, a configuration reference from `config.example.yaml`, and search. |
 | `/changelog` | llama-swap's release notes as HTML, from the `changelog` package: the index lists every release, newest first, and `/changelog/<version>` shows one release. |
 | `/api/mcp` | The documentation and source code tools the help agent calls, served by llama-swap's `docbot` package: the same MCP protocol and tools as llama-swap's own `/api/mcp`, minus the ones that need a running llama-swap. |
@@ -135,6 +136,28 @@ is built with, with the same goldmark rendering as the docs pages. `/changelog`
 lists every release, newest first; `/changelog/<version>` shows one release
 note, in the docs page layout, and accepts the version with or without the
 leading `v`.
+
+## How the features tour works
+
+Each slide is a Markdown file in `web/features/`, named `NN-slug.md`: the
+number sets the order and the slug is the URL, `/features/<slug>`. Its front
+matter sets the title, the level (`Basics`, `Intermediate` or `Advanced`;
+slides go from basics to advanced), the question the "Ask the llama" button
+puts in the chat, the related docs pages by knowledge base id, and optional
+screenshots. `internal/featuresite` renders them once, at startup, with the
+same goldmark and Chroma setup as the docs pages.
+
+Every slide is in the page, and `features.js` shows one at a time, so Back,
+Next, the topic menu and the arrow keys change slides without a reload while
+keeping the URL and browser history in step. "Ask the llama" links to
+`/docs/chat?q=<question>`; the chat page fills its question box from `q`
+without sending it.
+
+The web UI slide's screenshots are in `web/static/img/features/`. They are
+taken from a real llama-swap whose models are fake-model test servers;
+`scripts/ui-screenshots/` has the config, the request traffic and the
+Playwright script that make them, and its README explains how to take them
+again when the UI changes.
 
 ## Where llama-swap's docs and code come from
 

@@ -22,6 +22,7 @@
         <span>llama-swap</span>
       </a>
       <nav class="site-nav" aria-label="Main">
+        <a href="/features"{{if eq .Page "features"}} aria-current="page"{{end}}>Features</a>
         <a href="/docs"{{if or (hasPrefix .Page "docs") (eq .Page "help")}} aria-current="page"{{end}}>Docs</a>
         <a href="/changelog"{{if hasPrefix .Page "changelog"}} aria-current="page"{{end}}>Changelog</a>
         <a href="https://github.com/mostlygeek/llama-swap" class="nav-github">
