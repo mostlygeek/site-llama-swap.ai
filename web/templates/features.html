@@ -1,0 +1,76 @@
+{{define "main"}}
+{{$current := .Slide}}
+<div class="wrap deck" id="deck">
+  <div class="deck-bar">
+    <p class="docs-crumb"><a href="/features">Features</a> / <span id="deck-count">{{$current.Number}} of {{len .Features.Slides}}</span></p>
+    <nav class="deck-nav" aria-label="Slides">
+      {{if $current.Prev}}<a class="button small" id="deck-prev" href="{{$current.Prev.URL}}" rel="prev">{{else}}<a class="button small" id="deck-prev" aria-disabled="true">{{end}}
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M15 18l-6-6 6-6"/></svg>
+        <span>Back</span>
+      </a>
+      <label class="visually-hidden" for="deck-topic">Topic</label>
+      <select id="deck-topic" class="deck-topic">
+        {{range $level := .Features.Levels}}
+        <optgroup label="{{$level}}">
+          {{range $.Features.Slides}}{{if eq .Level $level}}<option value="{{.Slug}}"{{if eq .Slug $current.Slug}} selected{{end}}>{{.Number}}. {{.Title}}</option>{{end}}{{end}}
+        </optgroup>
+        {{end}}
+      </select>
+      {{if $current.Next}}<a class="button small" id="deck-next" href="{{$current.Next.URL}}" rel="next">{{else}}<a class="button small" id="deck-next" aria-disabled="true">{{end}}
+        <span>Next</span>
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M9 18l6-6-6-6"/></svg>
+      </a>
+    </nav>
+  </div>
+  <div class="deck-progress" aria-hidden="true"><div class="deck-progress-fill" id="deck-progress" style="--n: {{$current.Number}}; --total: {{len .Features.Slides}}"></div></div>
+
+  {{range .Features.Slides}}
+  <section class="slide" id="slide-{{.Slug}}" data-slug="{{.Slug}}" data-title="{{.Title}} · llama-swap features" data-number="{{.Number}}"{{if .Prev}} data-prev="{{.Prev.Slug}}"{{end}}{{if .Next}} data-next="{{.Next.Slug}}"{{end}} aria-labelledby="slide-title-{{.Slug}}"{{if ne .Slug $current.Slug}} hidden{{end}}>
+    <p class="slide-level level-{{.Level}}">{{.Level}}</p>
+    <h1 id="slide-title-{{.Slug}}">{{.Title}}</h1>
+    {{if .Summary}}<p class="slide-summary">{{.Summary}}</p>{{end}}
+
+    <div class="doc-body slide-body">{{.HTML}}</div>
+
+    {{if .Screenshots}}
+    <div class="shots" data-shots>
+      <div class="shot-tabs" role="tablist" aria-label="Screenshots">
+        {{range $i, $shot := .Screenshots}}<button type="button" role="tab" class="shot-tab" aria-selected="{{if eq $i 0}}true{{else}}false{{end}}" data-shot="{{$i}}">{{$shot.Title}}</button>{{end}}
+      </div>
+      {{range $i, $shot := .Screenshots}}
+      <figure class="shot" data-shot="{{$i}}">
+        <a href="{{$shot.Src}}" target="_blank" rel="noopener"><img src="{{$shot.Src}}" alt="{{$shot.Alt}}" width="1094" height="667" loading="lazy" referrerpolicy="no-referrer"></a>
+        <figcaption><strong>{{$shot.Title}}.</strong> {{$shot.Caption}}</figcaption>
+      </figure>
+      {{end}}
+    </div>
+    {{end}}
+
+    <div class="slide-ask">
+      <div>
+        <p class="slide-ask-label">Ask the llama</p>
+        <p class="slide-ask-prompt">“{{.Prompt}}”</p>
+      </div>
+      <a class="button primary" href="/docs/chat?q={{.Prompt}}">
+        <img src="{{asset "img/logo-192.png"}}" alt="" width="20" height="20">
+        <span>Ask the llama</span>
+      </a>
+    </div>
+
+    {{if .Docs}}
+    <div class="slide-docs">
+      <h2>Read more</h2>
+      <ul>{{range .Docs}}<li><a href="{{docURL .}}">{{docTitle .}}</a></li>{{end}}</ul>
+    </div>
+    {{end}}
+
+    <nav class="slide-foot" aria-label="Next and previous">
+      {{if .Prev}}<a class="slide-foot-link prev" href="{{.Prev.URL}}" data-go="{{.Prev.Slug}}"><span class="muted">Back</span><span>{{.Prev.Title}}</span></a>{{else}}<span></span>{{end}}
+      {{if .Next}}<a class="slide-foot-link next" href="{{.Next.URL}}" data-go="{{.Next.Slug}}"><span class="muted">Next</span><span>{{.Next.Title}}</span></a>{{end}}
+    </nav>
+  </section>
+  {{end}}
+</div>
+{{end}}
+
+{{define "scripts"}}<script type="module" src="{{asset "js/features.js"}}"></script>{{end}}

@@ -22,6 +22,7 @@ import (
 
 	"github.com/mostlygeek/site-llama-swap.ai/internal/changelogsite"
 	"github.com/mostlygeek/site-llama-swap.ai/internal/docsite"
+	"github.com/mostlygeek/site-llama-swap.ai/internal/featuresite"
 	"github.com/mostlygeek/site-llama-swap.ai/internal/llamasrc"
 	"github.com/mostlygeek/site-llama-swap.ai/web"
 )
@@ -46,7 +47,9 @@ type Server struct {
 	docs *docsite.Site
 	// changelog renders llama-swap's release notes.
 	changelog *changelogsite.Site
-	log       *slog.Logger
+	// features is the Features tour's slides.
+	features *featuresite.Site
+	log      *slog.Logger
 
 	// highlightVersion versions the code colours stylesheet's URL.
 	highlightVersion string
@@ -103,11 +106,17 @@ func New(opts Options) (*Server, error) {
 		return nil, fmt.Errorf("rendering the llama-swap changelog: %w", err)
 	}
 
+	features, err := featuresite.Load(web.Features)
+	if err != nil {
+		return nil, fmt.Errorf("rendering the features tour: %w", err)
+	}
+
 	s := &Server{
 		mux:       http.NewServeMux(),
 		bot:       bot,
 		docs:      site,
 		changelog: cl,
+		features:  features,
 		log:       log,
 	}
 	s.highlightVersion = fmt.Sprintf("%x", sha256.Sum256([]byte(site.HighlightCSS)))[:12]
@@ -144,6 +153,7 @@ func (s *Server) routes() {
 	s.mux.Handle("/api/mcp", s.bot)
 	s.docsRoutes()
 	s.changelogRoutes()
+	s.featuresRoutes()
 	s.mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Write([]byte("ok\n"))
@@ -263,6 +273,10 @@ type pageData struct {
 	// The changelog pages.
 	Changelog *changelogsite.Site
 	Release   *changelogsite.Release
+
+	// The Features tour.
+	Features *featuresite.Site
+	Slide    *featuresite.Slide
 }
 
 func (s *Server) parseTemplates() error {
@@ -272,10 +286,17 @@ func (s *Server) parseTemplates() error {
 			return "/static/" + strings.TrimPrefix(name, "/") + "?v=" + s.assetVersion
 		},
 		"hasPrefix": strings.HasPrefix,
+		"docURL":    docsite.URL,
+		"docTitle": func(id string) string {
+			if p, ok := s.docs.Page(id); ok {
+				return p.Title
+			}
+			return id
+		},
 	}
 
 	s.pages = map[string]*template.Template{}
-	for _, name := range []string{"home", "help", "404", "docs_index", "docs_page", "docs_config", "docs_search", "changelog", "changelog_page"} {
+	for _, name := range []string{"home", "help", "404", "docs_index", "docs_page", "docs_config", "docs_search", "changelog", "changelog_page", "features"} {
 		files := []string{"templates/base.html", "templates/" + name + ".html"}
 		switch {
 		case strings.HasPrefix(name, "docs_"):
