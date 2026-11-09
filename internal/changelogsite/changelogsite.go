@@ -50,7 +50,7 @@ type Release struct {
 }
 
 // URL is the release's path on the site.
-func (r *Release) URL() string { return "/changelog/" + r.Version }
+func (r *Release) URL() string { return "/releases/" + r.Version }
 
 // SourceURL links to the release's Markdown on GitHub.
 func (r *Release) SourceURL() string { return repoBlob + r.Source }

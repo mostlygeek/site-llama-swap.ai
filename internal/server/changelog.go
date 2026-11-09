@@ -3,9 +3,17 @@ package server
 import "net/http"
 
 func (s *Server) changelogRoutes() {
-	s.mux.HandleFunc("GET /changelog", s.changelogIndex)
-	s.mux.HandleFunc("GET /changelog/{$}", s.changelogIndex)
-	s.mux.HandleFunc("GET /changelog/{version}", s.changelogRelease)
+	s.mux.HandleFunc("GET /releases", s.changelogIndex)
+	s.mux.HandleFunc("GET /releases/{$}", s.changelogIndex)
+	s.mux.HandleFunc("GET /releases/{version}", s.changelogRelease)
+
+	// The old /changelog paths moved to /releases.
+	s.mux.HandleFunc("GET /changelog", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/releases", http.StatusMovedPermanently)
+	})
+	s.mux.HandleFunc("GET /changelog/{rest...}", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/releases/"+r.PathValue("rest"), http.StatusMovedPermanently)
+	})
 }
 
 func (s *Server) changelogData(title string) pageData {
@@ -31,7 +39,7 @@ func (s *Server) changelogRelease(w http.ResponseWriter, r *http.Request) {
 	}
 	if release.Version != version {
 		// The version may be given without the leading "v".
-		http.Redirect(w, r, release.URL(), http.StatusMovedPermanently)
+		http.Redirect(w, r, "/releases/"+release.Version, http.StatusMovedPermanently)
 		return
 	}
 	data := s.changelogData(release.Version + " · llama-swap changelog")

@@ -36,7 +36,7 @@ func TestChangelogsite_Load(t *testing.T) {
 		if r.Title == "" || r.Summary == "" || r.HTML == "" {
 			t.Errorf("%s: missing title/summary/HTML: %q / %q / %d bytes", r.Version, r.Title, r.Summary, len(r.HTML))
 		}
-		if r.URL() != "/changelog/"+r.Version {
+		if r.URL() != "/releases/"+r.Version {
 			t.Errorf("%s: URL = %s", r.Version, r.URL())
 		}
 	}
