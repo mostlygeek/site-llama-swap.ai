@@ -185,6 +185,28 @@ push. When `main` changes and the tests pass, it deploys with `flyctl deploy`.
 To pick up new llama-swap docs without a change here, run the workflow by hand
 from the Actions tab.
 
+`.github/workflows/refresh-releases.yml` does it unattended. Once a night it
+compares the newest release on llama-swap.ai with llama-swap's newest
+`changelog/v<number>.md` (`scripts/release-drift.sh`), and when the site is
+behind it runs the test and deploy jobs above. A release that lands after the
+check waits for the next night, and a deploy that fails leaves the site
+behind, so the next night retries it. To run it by hand:
+
+```shell
+gh workflow run refresh-releases.yml
+```
+
+Check it without deploying anything:
+
+```shell
+./scripts/release-drift.sh   # upstream, live and drift, as key=value lines
+```
+
+Two limits on schedules worth knowing: GitHub runs them in UTC and delays them
+when runners are busy, and GitHub turns them off for a repository with no
+commits for 60 days, which a site this steady can drift into. Committing a
+`make update-llama-swap` pin now and then keeps them running.
+
 One-time setup:
 
 1. Create the app. Change `app` and `primary_region` in `fly.toml` if you

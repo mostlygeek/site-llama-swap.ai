@@ -1,0 +1,72 @@
+name: Refresh releases
+
+# llama-swap's release notes and docs on llama-swap.ai come from the
+# llama-swap commit the image was built with, and the Dockerfile builds
+# against llama-swap's latest main, so a new llama-swap release needs a
+# rebuild and no change here. This checks once a night whether the site's
+# newest release is behind llama-swap's newest changelog file and, when it
+# is, runs the same test and deploy jobs a push to main runs.
+#
+# By hand:
+#
+#   gh workflow run refresh-releases.yml
+#
+# or Actions -> Refresh releases -> Run workflow. Tick "force" to redeploy an
+# up-to-date site. A deploy that fails leaves the site behind, so the next
+# night retries it.
+
+on:
+  schedule:
+    # 06:20 UTC: after one day's releases land, before US business hours.
+    # GitHub runs schedules in UTC and can delay them when runners are busy.
+    - cron: "20 6 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Deploy even when the site is up to date"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# One refresh at a time; a hand-run one does not stack up behind another.
+concurrency:
+  group: refresh-releases
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      drift: ${{ steps.drift.outputs.drift }}
+      upstream: ${{ steps.drift.outputs.upstream }}
+      live: ${{ steps.drift.outputs.live }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+
+      # Prints upstream, live and drift for the deploy job and the summary.
+      - name: Compare the site with llama-swap's newest release
+        id: drift
+        run: ./scripts/release-drift.sh >> "$GITHUB_OUTPUT"
+
+      - name: Summarize
+        run: |
+          {
+            echo "llama-swap's newest release: ${{ steps.drift.outputs.upstream }}"
+            echo "newest release on llama-swap.ai: ${{ steps.drift.outputs.live }}"
+            if [ "${{ steps.drift.outputs.drift }}" = true ]; then
+              echo "The site is behind, so it gets rebuilt."
+            else
+              echo "The site is up to date, nothing to do."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Test and deploy, from the same file a push uses. The check job's own run
+  # needs no secrets, so only this one inherits them.
+  deploy:
+    needs: check
+    if: needs.check.outputs.drift == 'true' ||
+      (github.event_name == 'workflow_dispatch' && inputs.force)
+    uses: ./.github/workflows/deploy.yml
+    secrets: inherit

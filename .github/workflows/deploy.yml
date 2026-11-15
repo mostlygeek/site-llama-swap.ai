@@ -7,6 +7,9 @@ on:
     branches: ["main"]
   # Redeploy by hand, for example to pick up new llama-swap docs.
   workflow_dispatch:
+  # Called by refresh-releases.yml when the site is behind a new llama-swap
+  # release. It runs with that run's ref, so the deploy step below applies.
+  workflow_call:
 
 permissions:
   contents: read
